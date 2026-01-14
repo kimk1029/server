@@ -2,7 +2,7 @@ name: Deploy to Stage (main)
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "master" ]
 
 concurrency:
   group: deploy-stage
@@ -22,6 +22,6 @@ jobs:
           script: |
             set -e
             export REPO_ROOT="${{ secrets.STAGE_REPO_DIR }}"
-            export BRANCH="main"
+            export BRANCH="${{ github.ref_name }}"
             export PM2_ENV="stage"
             bash "$REPO_ROOT/deploy/deploy-stage.sh"
