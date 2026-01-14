@@ -4,7 +4,7 @@ set -euo pipefail
 # This script is intended to run ON the stage server (Ubuntu in Docker).
 # It pulls latest main, builds server, and restarts PM2 process.
 
-REPO_ROOT="${REPO_ROOT:-/srv/pnt}"      # set this on server or via GitHub Actions
+REPO_ROOT="${REPO_ROOT:-/server}"      # server 폴더만 clone한 경우: /server
 BRANCH="${BRANCH:-main}"
 PM2_ENV="${PM2_ENV:-stage}"
 
@@ -39,7 +39,7 @@ echo "→ git pull (ff-only)"
 git pull --ff-only origin "$BRANCH"
 
 echo "→ build server"
-cd "$REPO_ROOT/server"
+# server 폴더가 루트이므로 바로 여기서 빌드
 
 if ! command -v node >/dev/null 2>&1; then
   echo "❌ node not found. Please install Node.js >= 18 on stage server."
