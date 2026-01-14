@@ -294,3 +294,65 @@ export const handleBasecampSet = (
   logger.info('Basecamp set', { roomId, lat: payload.lat, lng: payload.lng });
   broadcaster.broadcastGameState(room);
 };
+
+export const handleRoomSettingsUpdate = (
+  roomId: string,
+  playerId: string,
+  payload: any,
+  roomManager: RoomManager,
+  playerManager: PlayerManager,
+  broadcaster: Broadcaster,
+  permissionValidator: PermissionValidator
+) => {
+  const room = roomManager.getRoom(roomId);
+  if (!room) return;
+
+  const ws = playerManager.getConnectionByPlayerId(playerId);
+
+  if (!permissionValidator.isHost(room, playerId)) {
+    ws?.send(
+      JSON.stringify({
+        type: 'room:settings:update',
+        success: false,
+        error: 'Permission denied',
+        ts: Date.now(),
+      }),
+    );
+    return;
+  }
+
+  if (room.status !== 'LOBBY') {
+    ws?.send(
+      JSON.stringify({
+        type: 'room:settings:update',
+        success: false,
+        error: 'Settings can only be changed in LOBBY',
+        ts: Date.now(),
+      }),
+    );
+    return;
+  }
+
+  const next = payload?.settings || payload || {};
+
+  // allowlist only (avoid arbitrary overwrite)
+  if (typeof next.hidingSeconds === 'number') room.settings.hidingSeconds = Math.max(5, Math.min(600, next.hidingSeconds));
+  if (typeof next.chaseSeconds === 'number') room.settings.chaseSeconds = Math.max(30, Math.min(3600, next.chaseSeconds));
+  if (typeof next.proximityRadiusMeters === 'number')
+    room.settings.proximityRadiusMeters = Math.max(5, Math.min(500, next.proximityRadiusMeters));
+  if (typeof next.captureRadiusMeters === 'number')
+    room.settings.captureRadiusMeters = Math.max(1, Math.min(100, next.captureRadiusMeters));
+  if (typeof next.jailRadiusMeters === 'number') room.settings.jailRadiusMeters = Math.max(1, Math.min(200, next.jailRadiusMeters));
+  if (typeof next.maxPlayers === 'number') room.settings.maxPlayers = Math.max(2, Math.min(100, next.maxPlayers));
+
+  ws?.send(
+    JSON.stringify({
+      type: 'room:settings:update',
+      success: true,
+      data: { settings: room.settings },
+      ts: Date.now(),
+    }),
+  );
+
+  broadcaster.broadcastGameState(room);
+};

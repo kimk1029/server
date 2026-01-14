@@ -103,6 +103,19 @@ export class MessageRouter {
           );
           break;
 
+        case 'room:settings:update':
+          if (!roomId) return;
+          lobbyHandlers.handleRoomSettingsUpdate(
+            roomId,
+            playerId,
+            payload,
+            this.roomManager,
+            this.playerManager,
+            this.broadcaster,
+            this.permissionValidator
+          );
+          break;
+
         case 'team:shuffle':
           if (!roomId) return;
           gameHandlers.handleTeamShuffle(
