@@ -41,19 +41,114 @@ git pull --ff-only origin "$BRANCH"
 echo "→ build server"
 # server 폴더가 루트이므로 바로 여기서 빌드
 
-if ! command -v node >/dev/null 2>&1; then
+# Node.js 경로 찾기 (nvm, 직접 설치, system 등)
+NODE_PATH=""
+NPM_PATH=""
+
+# 1. nvm 사용 시 (여러 위치 확인)
+NVM_PATHS=(
+  "$HOME/.nvm/nvm.sh"
+  "/root/.nvm/nvm.sh"
+  "/usr/local/nvm/nvm.sh"
+  "/opt/nvm/nvm.sh"
+)
+
+NVM_LOADED=false
+for nvm_path in "${NVM_PATHS[@]}"; do
+  if [ -s "$nvm_path" ]; then
+    echo "   → Loading nvm from $nvm_path..."
+    export NVM_DIR="$(dirname "$nvm_path")"
+    source "$nvm_path"
+    NVM_LOADED=true
+    
+    # nvm이 로드되면 최신 Node.js 사용 (21이 있으면 그것 사용)
+    if nvm list 21 >/dev/null 2>&1; then
+      nvm use 21 2>/dev/null || true
+    elif nvm list 20 >/dev/null 2>&1; then
+      nvm use 20 2>/dev/null || true
+    elif nvm list 18 >/dev/null 2>&1; then
+      nvm use 18 2>/dev/null || true
+    else
+      nvm use default 2>/dev/null || nvm use node 2>/dev/null || true
+    fi
+    
+    # nvm이 로드된 후 PATH 확실히 업데이트
+    if [ -n "$NVM_DIR" ]; then
+      CURRENT_NODE="$(nvm current 2>/dev/null || echo '')"
+      if [ -n "$CURRENT_NODE" ] && [ "$CURRENT_NODE" != "none" ]; then
+        NVM_NODE_PATH="$NVM_DIR/versions/node/$CURRENT_NODE/bin"
+        if [ -d "$NVM_NODE_PATH" ]; then
+          export PATH="$NVM_NODE_PATH:$PATH"
+          echo "   → nvm PATH updated: $NVM_NODE_PATH"
+        fi
+      fi
+    fi
+    break
+  fi
+done
+
+# 2. PATH에서 찾기 (nvm 로드 후)
+if command -v node >/dev/null 2>&1; then
+  NODE_PATH="$(command -v node)"
+  NPM_PATH="$(command -v npm || echo '')"
+elif [ -f "/usr/local/bin/node" ]; then
+  NODE_PATH="/usr/local/bin/node"
+  NPM_PATH="/usr/local/bin/npm"
+elif [ -f "/usr/bin/node" ]; then
+  NODE_PATH="/usr/bin/node"
+  NPM_PATH="/usr/bin/npm"
+fi
+
+if [ -z "$NODE_PATH" ] || [ ! -f "$NODE_PATH" ]; then
   echo "❌ node not found. Please install Node.js >= 18 on stage server."
+  echo "   Install guide:"
+  echo "     curl -fsSL https://deb.nodesource.com/setup_18.x | bash -"
+  echo "     apt-get install -y nodejs"
   exit 1
 fi
 
-NODE_VER="$(node -v || true)"
-echo "   node: $NODE_VER"
+# Node.js 버전 확인
+NODE_VER="$($NODE_PATH -v 2>/dev/null || echo 'unknown')"
+NODE_MAJOR="$($NODE_PATH -v 2>/dev/null | sed 's/v\([0-9]*\).*/\1/' || echo '0')"
+
+echo "   node: $NODE_VER ($NODE_PATH)"
+
+if [ "$NODE_MAJOR" -lt 18 ]; then
+  echo "⚠️  Warning: Node.js version is $NODE_VER (requires >= 18)"
+fi
+
+# npm 경로 찾기
+if [ -z "$NPM_PATH" ] || [ ! -f "$NPM_PATH" ]; then
+  # npm이 없으면 node와 같은 디렉토리에서 찾기
+  NPM_DIR="$(dirname "$NODE_PATH")"
+  if [ -f "$NPM_DIR/npm" ]; then
+    NPM_PATH="$NPM_DIR/npm"
+  elif command -v npm >/dev/null 2>&1; then
+    NPM_PATH="$(command -v npm)"
+  else
+    echo "❌ npm not found."
+    echo "   Node.js path: $NODE_PATH"
+    echo "   Please install npm on stage server:"
+    echo "     Option 1 (if using nvm): nvm install --latest-npm"
+    echo "     Option 2 (system): apt-get update && apt-get install -y npm"
+    echo "     Option 3 (with NodeSource): curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && apt-get install -y nodejs"
+    exit 1
+  fi
+fi
+
+# npm 실행 가능한지 확인
+if ! "$NPM_PATH" -v >/dev/null 2>&1; then
+  echo "❌ npm is found but not executable: $NPM_PATH"
+  exit 1
+fi
+
+echo "   npm:  $($NPM_PATH -v 2>/dev/null || echo 'unknown') ($NPM_PATH)"
 
 echo "→ npm ci"
-npm ci --no-audit --no-fund
+$NPM_PATH ci --no-audit --no-fund
 
 echo "→ npm run build"
-npm run build
+$NPM_PATH run build
 
 if ! command -v pm2 >/dev/null 2>&1; then
   echo "❌ pm2 not found. Install once on stage server:"
