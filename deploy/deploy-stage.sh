@@ -29,20 +29,38 @@ fi
 
 cd "$REPO_ROOT"
 
+git_retry() {
+  local n=0
+  local max=3
+  local delay=3
+  until "$@"; do
+    n=$((n+1))
+    if [ "$n" -ge "$max" ]; then
+      echo "❌ git command failed after ${max} attempts: $*"
+      return 1
+    fi
+    echo "⚠️  git failed (attempt $n/$max). retry in ${delay}s..."
+    sleep "$delay"
+    delay=$((delay*2))
+  done
+}
+
+# GitHub쪽 일시적인 408(타임아웃) 완화 옵션
+GIT_NET_OPTS=(-c http.lowSpeedLimit=0 -c http.lowSpeedTime=999999 -c http.version=HTTP/1.1)
+export GIT_TERMINAL_PROMPT=0
+
 echo "→ git fetch"
-git fetch --prune origin
+git_retry git "${GIT_NET_OPTS[@]}" fetch --prune origin
 
 echo "→ git checkout $BRANCH"
-git checkout "$BRANCH"
+git_retry git checkout "$BRANCH"
 
-# 로컬 변경사항이 있으면 stash (배포 스크립트는 항상 원격을 우선)
-if ! git diff --quiet HEAD; then
-  echo "   → Stashing local changes..."
-  git stash push -m "Auto-stash before deploy $(date +%Y%m%d-%H%M%S)" || true
-fi
+# ✅ 배포는 원격을 "정답"으로 보고 강제 동기화 (로컬 수정을 남기면 다음 배포가 계속 깨짐)
+echo "→ git reset --hard origin/$BRANCH"
+git_retry git "${GIT_NET_OPTS[@]}" reset --hard "origin/$BRANCH"
 
-echo "→ git pull (ff-only)"
-git pull --ff-only origin "$BRANCH"
+echo "→ git clean (safe)"
+git clean -fd >/dev/null 2>&1 || true
 
 echo "→ build server"
 # server 폴더가 루트이므로 바로 여기서 빌드
