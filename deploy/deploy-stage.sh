@@ -35,6 +35,12 @@ git fetch --prune origin
 echo "→ git checkout $BRANCH"
 git checkout "$BRANCH"
 
+# 로컬 변경사항이 있으면 stash (배포 스크립트는 항상 원격을 우선)
+if ! git diff --quiet HEAD; then
+  echo "   → Stashing local changes..."
+  git stash push -m "Auto-stash before deploy $(date +%Y%m%d-%H%M%S)" || true
+fi
+
 echo "→ git pull (ff-only)"
 git pull --ff-only origin "$BRANCH"
 
