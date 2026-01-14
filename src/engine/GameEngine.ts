@@ -110,14 +110,16 @@ export class GameEngine {
     if (!room || room.status !== 'CHASE') return;
 
     const thieves = Array.from(room.players.values()).filter(p => p.team === 'THIEF');
-    const jailedCount = thieves.filter(t => t.thiefStatus?.state === 'JAILED').length;
+    const capturedOrJailedCount = thieves.filter(
+      t => t.thiefStatus?.state === 'CAPTURED' || t.thiefStatus?.state === 'JAILED',
+    ).length;
 
-    if (jailedCount === thieves.length && thieves.length > 0) {
+    if (capturedOrJailedCount === thieves.length && thieves.length > 0) {
       const result = this.winChecker.check(room);
       this.stateMachine.transition(room, 'END');
       this.broadcaster.broadcastGameEnd(room, result);
       this.cleanupTimers(roomId);
-      logger.info('Police win (all thieves jailed)', { roomId });
+      logger.info('Police win (all thieves captured)', { roomId });
     }
   }
 

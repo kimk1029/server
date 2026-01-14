@@ -1,7 +1,10 @@
 export type RoomStatus = 'LOBBY' | 'HIDING' | 'CHASE' | 'END';
 
+export type GameMode = 'BASIC' | 'ITEM_FIND';
+
 export interface RoomSettings {
   maxPlayers: number;
+  gameMode: GameMode;
   hidingSeconds: number;
   chaseSeconds: number;
   proximityRadiusMeters: number;

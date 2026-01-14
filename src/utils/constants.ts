@@ -1,7 +1,8 @@
 export const DEFAULT_ROOM_SETTINGS = {
   maxPlayers: 20,
+  gameMode: 'BASIC' as const,
   hidingSeconds: 60,
-  chaseSeconds: 600,
+  chaseSeconds: 300, // 기본 5분
   proximityRadiusMeters: 30,
   captureRadiusMeters: 10,
   jailRadiusMeters: 15

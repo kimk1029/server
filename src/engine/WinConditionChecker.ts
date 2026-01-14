@@ -6,18 +6,20 @@ export class WinConditionChecker {
   check(room: Room): GameResult {
     const thieves = Array.from(room.players.values()).filter(p => p.team === 'THIEF');
     const totalThieves = thieves.length;
-    const jailedThieves = thieves.filter(t => t.thiefStatus?.state === 'JAILED');
-    const jailedCount = jailedThieves.length;
+    const capturedOrJailed = thieves.filter(t => t.thiefStatus?.state === 'CAPTURED' || t.thiefStatus?.state === 'JAILED');
+    const capturedOrJailedCount = capturedOrJailed.length;
 
-    if (jailedCount === totalThieves && totalThieves > 0) {
+    // 기본 룰: 모든 도둑을 "검거(캡처)"하거나 수감하면 경찰 승리
+    if (capturedOrJailedCount === totalThieves && totalThieves > 0) {
       return {
         winner: 'POLICE',
-        reason: '모든 도둑을 수감했습니다!',
+        reason: '모든 도둑을 검거했습니다!',
         stats: this.buildStats(room, thieves)
       };
     }
 
-    const survivedThieves = thieves.filter(t => t.thiefStatus?.state !== 'JAILED');
+    // 시간 종료 시점에 아직 FREE인 도둑이 1명이라도 있으면 도둑 승리
+    const survivedThieves = thieves.filter(t => t.thiefStatus?.state === 'FREE');
     return {
       winner: 'THIEF',
       reason: `${survivedThieves.length}명의 도둑이 생존했습니다!`,
