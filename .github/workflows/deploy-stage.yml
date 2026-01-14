@@ -1,0 +1,27 @@
+name: Deploy to Stage (main)
+
+on:
+  push:
+    branches: [ "main" ]
+
+concurrency:
+  group: deploy-stage
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.STAGE_HOST }}
+          username: ${{ secrets.STAGE_USER }}
+          key: ${{ secrets.STAGE_SSH_KEY }}
+          port: ${{ secrets.STAGE_PORT || 22 }}
+          script: |
+            set -e
+            export REPO_ROOT="${{ secrets.STAGE_REPO_DIR }}"
+            export BRANCH="main"
+            export PM2_ENV="stage"
+            bash "$REPO_ROOT/deploy/deploy-stage.sh"
