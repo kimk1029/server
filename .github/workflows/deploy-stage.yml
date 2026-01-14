@@ -24,4 +24,14 @@ jobs:
             export REPO_ROOT="${{ secrets.STAGE_REPO_DIR }}"
             export BRANCH="${{ github.ref_name }}"
             export PM2_ENV="stage"
+            
+            # ✅ 원인: stage 서버 워킹트리가 dirty(M deploy/deploy-stage.sh 등)라 git pull이 실패함
+            # 해결: 배포 전에 원격 브랜치 상태로 강제 동기화(추적되지 않는 파일은 그대로 유지)
+            cd "$REPO_ROOT"
+            git fetch --prune origin
+            git checkout "$BRANCH"
+            git reset --hard "origin/$BRANCH"
+            # (선택) 빌드 산출물 때문에 문제가 있으면 아래 주석 해제
+            # git clean -fd
+
             bash "$REPO_ROOT/deploy/deploy-stage.sh"
