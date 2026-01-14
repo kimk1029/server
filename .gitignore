@@ -1,0 +1,36 @@
+# Server (Node/TypeScript) .gitignore
+
+# dependencies
+node_modules/
+
+# env / secrets
+.env
+.env.*
+!.env.example
+
+# logs
+logs/
+*.log
+
+# build outputs
+dist/
+build/
+out/
+
+# caches
+.cache/
+.tmp/
+tmp/
+.eslintcache
+.tsbuildinfo
+*.tsbuildinfo
+
+# test / coverage
+coverage/
+.nyc_output/
+
+# runtime artifacts
+*.pid
+*.seed
+*.pid.lock
+
