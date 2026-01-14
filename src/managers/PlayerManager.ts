@@ -11,7 +11,8 @@ export class PlayerManager {
     this.playerRooms.set(playerId, roomId);
     this.wsToPlayer.set(ws, playerId);
     
-    logger.info('Player connected', { playerId, roomId });
+    const roomInfo = roomId ? ` (Room: ${roomId})` : '';
+    logger.info(`✅ 접속했습니다 [${playerId}]${roomInfo}`);
   }
 
   removeConnection(playerId: string): void {
@@ -24,7 +25,8 @@ export class PlayerManager {
     this.connections.delete(playerId);
     this.playerRooms.delete(playerId);
     
-    logger.info('Player disconnected', { playerId, roomId });
+    const roomInfo = roomId ? ` (Room: ${roomId})` : '';
+    logger.info(`❌ 접속 해제되었습니다 [${playerId}]${roomInfo}`);
   }
 
   getPlayerIdByWS(ws: WebSocket<unknown>): string | null {

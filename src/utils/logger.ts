@@ -2,18 +2,26 @@ import winston from 'winston';
 
 const logLevel = process.env.LOG_LEVEL || 'info';
 
+// 커스텀 포맷터: 예쁜 로그 출력
+const customFormat = winston.format.printf(({ level, message, timestamp, ...meta }) => {
+  const ts = timestamp ? new Date(timestamp).toLocaleTimeString('ko-KR') : '';
+  const metaStr = Object.keys(meta).length > 0 ? JSON.stringify(meta, null, 0) : '';
+  return `${ts} [${level}] ${message}${metaStr ? ' ' + metaStr : ''}`;
+});
+
 export const logger = winston.createLogger({
   level: logLevel,
   format: winston.format.combine(
-    winston.format.timestamp(),
+    winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
     winston.format.errors({ stack: true }),
+    winston.format.splat(),
     winston.format.json()
   ),
   transports: [
     new winston.transports.Console({
       format: winston.format.combine(
-        winston.format.colorize(),
-        winston.format.simple()
+        winston.format.colorize({ all: true }),
+        customFormat
       )
     })
   ]

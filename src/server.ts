@@ -61,8 +61,9 @@ export const startServer = () => {
     maxPayloadLength: 16 * 1024,
     idleTimeout: 60,
 
-    open: (_ws: WebSocket<unknown>) => {
-      logger.info('WebSocket connection opened');
+    open: (ws: WebSocket<unknown>) => {
+      // playerId는 첫 메시지에서 받아오므로 여기서는 연결만 로그
+      logger.info('🔌 WebSocket 연결 수립');
     },
 
     message: (ws: WebSocket<unknown>, message: ArrayBuffer, _isBinary: boolean) => {
@@ -123,9 +124,10 @@ export const startServer = () => {
   // 따라서 모든 인터페이스(0.0.0.0)에 바인딩해서 디바이스/에뮬레이터 접속을 보장합니다.
   app.listen('0.0.0.0', PORT, (token: any) => {
     if (token) {
-      logger.info(`Server listening on 0.0.0.0:${PORT}`);
+      logger.info(`✅ 서버가 포트 ${PORT}에서 실행 중입니다 (0.0.0.0:${PORT})`);
+      logger.info('📡 WebSocket 연결 대기 중...');
     } else {
-      logger.error('Failed to start server');
+      logger.error('❌ 서버 시작 실패');
       process.exit(1);
     }
   });
