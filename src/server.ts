@@ -61,7 +61,7 @@ export const startServer = () => {
     maxPayloadLength: 16 * 1024,
     idleTimeout: 60,
 
-    open: (ws: WebSocket<unknown>) => {
+    open: (_ws: WebSocket<unknown>) => {
       // playerId는 첫 메시지에서 받아오므로 여기서는 연결만 로그
       logger.info('🔌 WebSocket 연결 수립');
     },
