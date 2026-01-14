@@ -4,7 +4,7 @@ set -euo pipefail
 # This script is intended to run ON the stage server (Ubuntu in Docker).
 # It pulls latest main, builds server, and restarts PM2 process.
 
-REPO_ROOT="${REPO_ROOT:-/server}"      # server 폴더만 clone한 경우: /server
+REPO_ROOT="${REPO_ROOT:-/kh_dev/server}"      # server 폴더 위치: /kh_dev/server
 BRANCH="${BRANCH:-main}"
 PM2_ENV="${PM2_ENV:-stage}"
 
