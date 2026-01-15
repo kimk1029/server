@@ -120,9 +120,8 @@ export class Broadcaster {
       ready: p.ready,
       connected: p.connected,
       thiefStatus: p.thiefStatus,
-      // 경찰이 도둑들의 위치를 볼 수 있도록 location 정보 포함
-      // (게임 상태가 HIDING 또는 CHASE일 때만)
-      location: room.status === 'HIDING' || room.status === 'CHASE' ? p.location : null
+      // 실시간 위치 표시를 위해 항상 location 정보 포함
+      location: p.location ?? null
     }));
     
     logger.info('Serialized players', { 

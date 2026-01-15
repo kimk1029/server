@@ -14,7 +14,15 @@ export const handleCaptureRequest = (
   _gameEngine: GameEngine
 ) => {
   const room = roomManager.getRoom(roomId);
-  if (!room || room.status !== 'CHASE') return;
+  if (!room || room.status !== 'CHASE') {
+    broadcaster.sendToPlayer(playerId, {
+      type: 'capture:result',
+      success: false,
+      error: 'Capture allowed only during CHASE phase',
+      ts: Date.now()
+    });
+    return;
+  }
 
   const police = room.players.get(playerId);
   const thief = room.players.get(payload.thiefId);
@@ -100,7 +108,15 @@ export const handleJailRequest = (
   _gameEngine: GameEngine
 ) => {
   const room = roomManager.getRoom(roomId);
-  if (!room || room.status !== 'CHASE') return;
+  if (!room || room.status !== 'CHASE') {
+    broadcaster.sendToPlayer(playerId, {
+      type: 'jail:result',
+      success: false,
+      error: 'Jail allowed only during CHASE phase',
+      ts: Date.now()
+    });
+    return;
+  }
 
   const police = room.players.get(playerId);
   const thief = room.players.get(payload.thiefId);
