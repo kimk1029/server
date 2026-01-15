@@ -94,7 +94,8 @@ export const handleRoomJoin = (
     return;
   }
 
-  if (room.players.size >= room.settings.maxPlayers) {
+  const existingPlayer = room.players.get(playerId);
+  if (!existingPlayer && room.players.size >= room.settings.maxPlayers) {
     ws?.send(
       JSON.stringify({
         type: 'room:join',
@@ -106,18 +107,27 @@ export const handleRoomJoin = (
     return;
   }
 
-  const player: Player = {
-    playerId,
-    nickname,
-    role: 'GUEST',
-    team: null,
-    ready: false,
-    connected: true,
-    location: null,
-    thiefStatus: null
-  };
+  if (existingPlayer) {
+    existingPlayer.connected = true;
+    if (nickname && nickname.trim()) {
+      existingPlayer.nickname = nickname.trim();
+    }
+    room.players.set(playerId, existingPlayer);
+    logger.info('Player rejoined room', { roomId, playerId });
+  } else {
+    const player: Player = {
+      playerId,
+      nickname,
+      role: 'GUEST',
+      team: null,
+      ready: false,
+      connected: true,
+      location: null,
+      thiefStatus: null
+    };
 
-  room.players.set(playerId, player);
+    room.players.set(playerId, player);
+  }
 
   // 이미 연결된 소켓이라도 최초 연결 시 roomId가 ''로 저장되어 있을 수 있으므로
   // join 시점에 반드시 매핑을 roomId로 갱신합니다.

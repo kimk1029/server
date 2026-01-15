@@ -101,23 +101,11 @@ export const startServer = () => {
         if (roomId) {
           const room = roomManager.getRoom(roomId);
           if (room) {
-            const wasHost = room.hostId === playerId;
-            const existed = room.players.delete(playerId);
-            logger.info('Player removed on socket close', { roomId, playerId, existed, wasHost });
-
-            if (wasHost) {
-              const next = room.players.values().next().value as any;
-              if (next) {
-                room.hostId = next.playerId;
-                next.role = 'HOST';
-                logger.info('Host reassigned (socket close)', { roomId, newHostId: next.playerId });
-              }
-            }
-
-            if (room.players.size === 0) {
-              roomManager.deleteRoom(room.roomId);
-              logger.info('Room deleted (empty after socket close)', { roomId: room.roomId });
-            } else {
+            const player = room.players.get(playerId);
+            if (player) {
+              player.connected = false;
+              room.players.set(playerId, player);
+              logger.info('Player marked disconnected (socket close)', { roomId, playerId });
               broadcaster.broadcastGameState(room);
             }
           }
