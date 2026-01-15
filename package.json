@@ -1,6 +1,6 @@
 {
   "name": "police-vs-thieves-server",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Realtime server for Police vs Thieves game",
   "main": "dist/index.js",
   "scripts": {
