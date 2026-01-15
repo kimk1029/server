@@ -164,6 +164,17 @@ export class MessageRouter {
           );
           break;
 
+        case 'capture:release':
+          if (!roomId) return;
+          captureHandlers.handleReleaseRequest(
+            roomId,
+            playerId,
+            payload,
+            this.roomManager,
+            this.broadcaster
+          );
+          break;
+
         case 'jail:request':
           if (!roomId) return;
           captureHandlers.handleJailRequest(

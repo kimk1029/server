@@ -192,3 +192,76 @@ export const handleJailRequest = (
 
   _gameEngine.checkWinCondition(roomId);
 };
+
+export const handleReleaseRequest = (
+  roomId: string,
+  playerId: string,
+  payload: any,
+  roomManager: RoomManager,
+  broadcaster: Broadcaster
+) => {
+  const room = roomManager.getRoom(roomId);
+  if (!room || room.status !== 'CHASE') {
+    broadcaster.sendToPlayer(playerId, {
+      type: 'release:result',
+      success: false,
+      error: 'Release allowed only during CHASE phase',
+      ts: Date.now()
+    });
+    return;
+  }
+
+  const police = room.players.get(playerId);
+  const thief = room.players.get(payload.thiefId);
+
+  if (!police || police.team !== 'POLICE') {
+    broadcaster.sendToPlayer(playerId, {
+      type: 'release:result',
+      success: false,
+      error: 'You are not a police',
+      ts: Date.now()
+    });
+    return;
+  }
+
+  if (!thief || thief.team !== 'THIEF') {
+    broadcaster.sendToPlayer(playerId, {
+      type: 'release:result',
+      success: false,
+      error: 'Invalid thief',
+      ts: Date.now()
+    });
+    return;
+  }
+
+  if (thief.thiefStatus?.state !== 'CAPTURED') {
+    broadcaster.sendToPlayer(playerId, {
+      type: 'release:result',
+      success: false,
+      error: 'Thief is not captured',
+      ts: Date.now()
+    });
+    return;
+  }
+
+  thief.thiefStatus = {
+    state: 'FREE',
+    capturedBy: null,
+    capturedAt: null,
+    jailedAt: null
+  };
+
+  broadcaster.broadcastToRoom(roomId, {
+    type: 'release:result',
+    success: true,
+    data: {
+      thiefId: thief.playerId,
+      thiefNickname: thief.nickname,
+      policeId: police.playerId,
+      policeNickname: police.nickname
+    },
+    ts: Date.now()
+  });
+
+  broadcaster.broadcastGameState(room);
+};
