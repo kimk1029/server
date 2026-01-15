@@ -16,6 +16,12 @@ module.exports = {
       autorestart: true,
       max_restarts: 10,
       time: true,
+      // 로그 설정: stdout/stderr 즉시 출력
+      merge_logs: true,
+      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+      error_file: './logs/pm2-error.log',
+      out_file: './logs/pm2-out.log',
+      log_file: './logs/pm2-combined.log',
       // 주의: PM2 watch는 재시작만 하고 빌드는 안함
       // 빌드 + 재시작을 자동화하려면 npm run watch:build 사용
       // watch: ['src'],
@@ -24,7 +30,11 @@ module.exports = {
       env_stage: {
         NODE_ENV: 'stage',
         PORT: '9991',
+        LOG_LEVEL: 'info', // 로그 레벨 명시
       },
+      // Node.js 경로 명시 (nvm 사용 시 필요)
+      // interpreter: '/root/.nvm/versions/node/v21.7.3/bin/node',
+      // interpreter_args: '',
     },
   ],
 };
