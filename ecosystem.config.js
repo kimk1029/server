@@ -22,6 +22,10 @@ module.exports = {
       error_file: './logs/pm2-error.log',
       out_file: './logs/pm2-out.log',
       log_file: './logs/pm2-combined.log',
+      // 출력 버퍼링 비활성화 (즉시 출력)
+      kill_timeout: 5000,
+      wait_ready: false,
+      listen_timeout: 10000,
       // 주의: PM2 watch는 재시작만 하고 빌드는 안함
       // 빌드 + 재시작을 자동화하려면 npm run watch:build 사용
       // watch: ['src'],

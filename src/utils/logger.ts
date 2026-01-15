@@ -25,9 +25,14 @@ export const logger = winston.createLogger({
       format: winston.format.combine(
         winston.format.colorize({ all: true }),
         customFormat
-      )
+      ),
+      // PM2에서 출력을 즉시 표시하도록 설정
+      handleExceptions: true,
+      handleRejections: true,
     })
-  ]
+  ],
+  // PM2에서 출력 버퍼링 방지
+  exitOnError: false,
 });
 
 // 프로덕션 환경에서는 파일 로깅 추가
