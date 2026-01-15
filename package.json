@@ -9,7 +9,9 @@
     "start": "node dist/index.js",
     "test": "jest",
     "test:watch": "jest --watch",
-    "lint": "eslint src --ext .ts"
+    "lint": "eslint src --ext .ts",
+    "watch:build": "chokidar 'src/**/*.ts' -c 'npm run build && pm2 restart pnt-stage --update-env' --initial",
+    "pm2:watch": "pm2 startOrReload ecosystem.config.js --env stage"
   },
   "keywords": [
     "websocket",
@@ -24,17 +26,18 @@
     "dotenv": "^16.4.1",
     "winston": "^3.11.0"
   },
-  "devDependencies": {
-    "@types/node": "^20.11.5",
-    "@types/jest": "^29.5.11",
-    "@typescript-eslint/eslint-plugin": "^6.19.0",
-    "@typescript-eslint/parser": "^6.19.0",
-    "eslint": "^8.56.0",
-    "jest": "^29.7.0",
-    "ts-jest": "^29.1.2",
-    "ts-node-dev": "^2.0.0",
-    "typescript": "^5.3.3"
-  },
+    "devDependencies": {
+      "@types/node": "^20.11.5",
+      "@types/jest": "^29.5.11",
+      "@typescript-eslint/eslint-plugin": "^6.19.0",
+      "@typescript-eslint/parser": "^6.19.0",
+      "chokidar-cli": "^3.0.0",
+      "eslint": "^8.56.0",
+      "jest": "^29.7.0",
+      "ts-jest": "^29.1.2",
+      "ts-node-dev": "^2.0.0",
+      "typescript": "^5.3.3"
+    },
   "engines": {
     "node": ">=18.0.0"
   }
