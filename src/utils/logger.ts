@@ -1,46 +1,55 @@
-import winston from 'winston';
+// PM2 호환성을 위해 console.log를 직접 사용하는 logger
+// winston은 PM2에서 출력이 제대로 캡처되지 않는 경우가 많음
 
-const logLevel = process.env.LOG_LEVEL || 'info';
+const logLevel = (process.env.LOG_LEVEL || 'info').toLowerCase();
 
-// 커스텀 포맷터: 예쁜 로그 출력
-const customFormat = winston.format.printf(({ level, message, timestamp, ...meta }) => {
-  const ts =
-    typeof timestamp === 'string' || typeof timestamp === 'number' || timestamp instanceof Date
-      ? new Date(timestamp).toLocaleTimeString('ko-KR')
+const shouldLog = (level: string): boolean => {
+  const levels = ['error', 'warn', 'info', 'debug'];
+  const currentLevelIndex = levels.indexOf(logLevel);
+  const messageLevelIndex = levels.indexOf(level);
+  return messageLevelIndex <= currentLevelIndex;
+};
+
+const formatMessage = (level: string, message: string, ...meta: any[]): string => {
+  const ts = new Date().toLocaleTimeString('ko-KR');
+  const metaStr = meta.length > 0 && typeof meta[0] === 'object' 
+    ? ' ' + JSON.stringify(meta[0], null, 0)
+    : meta.length > 0 
+      ? ' ' + meta.map(m => String(m)).join(' ')
       : '';
-  const metaStr = Object.keys(meta).length > 0 ? JSON.stringify(meta, null, 0) : '';
-  return `${ts} [${level}] ${message}${metaStr ? ' ' + metaStr : ''}`;
-});
+  return `${ts} [${level}] ${message}${metaStr}`;
+};
 
-export const logger = winston.createLogger({
-  level: logLevel,
-  format: winston.format.combine(
-    winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-    winston.format.errors({ stack: true }),
-    winston.format.splat(),
-    winston.format.json()
-  ),
-  transports: [
-    new winston.transports.Console({
-      format: winston.format.combine(
-        winston.format.colorize({ all: true }),
-        customFormat
-      ),
-      // PM2에서 출력을 즉시 표시하도록 설정
-      handleExceptions: true,
-      handleRejections: true,
-    })
-  ],
-  // PM2에서 출력 버퍼링 방지
-  exitOnError: false,
-});
-
-// 프로덕션 환경에서는 파일 로깅 추가
-if (process.env.NODE_ENV === 'production') {
-  logger.add(
-    new winston.transports.File({ filename: 'error.log', level: 'error' })
-  );
-  logger.add(
-    new winston.transports.File({ filename: 'combined.log' })
-  );
-}
+// winston.Logger 인터페이스와 호환되는 logger
+export const logger = {
+  info: (message: string, ...meta: any[]) => {
+    if (shouldLog('info')) {
+      console.log(formatMessage('info', message, ...meta));
+    }
+  },
+  error: (message: string, ...meta: any[]) => {
+    if (shouldLog('error')) {
+      console.error(formatMessage('error', message, ...meta));
+    }
+  },
+  warn: (message: string, ...meta: any[]) => {
+    if (shouldLog('warn')) {
+      console.warn(formatMessage('warn', message, ...meta));
+    }
+  },
+  debug: (message: string, ...meta: any[]) => {
+    if (shouldLog('debug')) {
+      console.log(formatMessage('debug', message, ...meta));
+    }
+  },
+  // winston 호환성을 위한 메서드들 (사용하지 않지만 타입 체크를 위해)
+  add: () => {},
+  remove: () => {},
+  clear: () => {},
+  close: () => {},
+  query: () => {},
+  stream: () => {},
+  startTimer: () => ({ done: () => {} }),
+  configure: () => {},
+  log: () => {},
+} as any;

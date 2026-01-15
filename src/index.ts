@@ -34,11 +34,16 @@ const printBanner = () => {
 };
 
 printBanner();
+console.log('[DEBUG] Banner printed');
 logger.info('🚀 Starting server...');
+console.log('[DEBUG] Logger initialized');
 
 try {
+  console.log('[DEBUG] Starting server...');
   startServer();
+  console.log('[DEBUG] Server started');
 } catch (error) {
+  console.error('[DEBUG] Server start failed:', error);
   logger.error('❌ Failed to start server', { error });
   process.exit(1);
 }
