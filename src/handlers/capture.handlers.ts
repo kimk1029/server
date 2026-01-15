@@ -95,6 +95,7 @@ export const handleCaptureRequest = (
   });
 
   broadcaster.broadcastGameState(room);
+  _gameEngine.checkWinCondition(roomId);
   logger.info('Thief captured', { roomId, thiefId: thief.playerId, policeId: police.playerId });
 };
 
