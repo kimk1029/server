@@ -34,6 +34,15 @@ export class MessageRouter {
     }
 
     logger.info('Received message', { type, playerId, roomId });
+    
+    // location:update 메시지 특별 로깅
+    if (type === 'location:update') {
+      logger.info('[LOC][Server] Received location:update', {
+        playerId,
+        roomId,
+        payload: payload ? { lat: payload.lat, lng: payload.lng, accuracy: payload.accuracy } : null,
+      });
+    }
 
     try {
       switch (type) {

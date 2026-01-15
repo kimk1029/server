@@ -77,9 +77,18 @@ export const startServer = () => {
           playerManager.addConnection(playerId, ws, roomId);
         }
 
+        // location:update 메시지 특별 로깅
+        if (data.type === 'location:update') {
+          logger.info('[LOC][Server] Raw location:update received', {
+            playerId: data.playerId,
+            roomId: data.roomId,
+            hasPayload: !!data.payload,
+          });
+        }
+
         messageRouter.handleMessage(ws, data);
       } catch (error) {
-        logger.error('Message parse error', { error });
+        logger.error('Message parse error', { error, message: Buffer.from(message).toString('utf8').substring(0, 200) });
       }
     },
 
