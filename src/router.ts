@@ -142,7 +142,13 @@ export class MessageRouter {
 
         case 'location:update':
           if (!roomId) return;
-          locationHandlers.handleLocationUpdate(roomId, playerId, payload, this.roomManager);
+          locationHandlers.handleLocationUpdate(
+            roomId,
+            playerId,
+            payload,
+            this.roomManager,
+            this.broadcaster
+          );
           break;
 
         case 'capture:request':

@@ -119,12 +119,15 @@ export class Broadcaster {
       team: p.team,
       ready: p.ready,
       connected: p.connected,
-      thiefStatus: p.thiefStatus
+      thiefStatus: p.thiefStatus,
+      // 경찰이 도둑들의 위치를 볼 수 있도록 location 정보 포함
+      // (게임 상태가 HIDING 또는 CHASE일 때만)
+      location: room.status === 'HIDING' || room.status === 'CHASE' ? p.location : null
     }));
     
     logger.info('Serialized players', { 
       count: players.length,
-      players: players.map(p => ({ id: p.playerId, nickname: p.nickname, role: p.role }))
+      players: players.map(p => ({ id: p.playerId, nickname: p.nickname, role: p.role, hasLocation: !!p.location }))
     });
     
     return players;
