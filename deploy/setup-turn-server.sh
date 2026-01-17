@@ -75,8 +75,14 @@ echo "✅ TURN 서버 설정 파일 생성 완료: $TURN_CONFIG"
 
 # 3. Coturn 서비스 활성화
 echo "→ Coturn 서비스 활성화 중..."
-systemctl enable coturn
-systemctl restart coturn
+if command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
+  systemctl enable coturn
+  systemctl restart coturn
+else
+  echo "⚠️  systemd가 없어서 turnserver를 직접 실행합니다."
+  # -o: daemonize, -c: config
+  turnserver -c "$TURN_CONFIG" -o
+fi
 
 # 4. 방화벽 포트 열기 (ufw 사용 시)
 if command -v ufw &> /dev/null; then
@@ -88,12 +94,21 @@ fi
 
 # 5. 서비스 상태 확인
 echo "→ Coturn 서비스 상태 확인 중..."
-if systemctl is-active --quiet coturn; then
-  echo "✅ Coturn 서비스가 실행 중입니다"
+if command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
+  if systemctl is-active --quiet coturn; then
+    echo "✅ Coturn 서비스가 실행 중입니다"
+  else
+    echo "❌ Coturn 서비스 시작 실패"
+    systemctl status coturn
+    exit 1
+  fi
 else
-  echo "❌ Coturn 서비스 시작 실패"
-  systemctl status coturn
-  exit 1
+  if pgrep -x turnserver >/dev/null 2>&1; then
+    echo "✅ turnserver 프로세스가 실행 중입니다"
+  else
+    echo "❌ turnserver 프로세스 시작 실패"
+    exit 1
+  fi
 fi
 
 # 6. TURN 서버 정보 출력
