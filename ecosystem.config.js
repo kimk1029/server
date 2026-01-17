@@ -11,7 +11,7 @@ module.exports = {
       max_restarts: 10,
       env_stage: {
         NODE_ENV: 'stage',
-        PORT: '9991',
+        PORT: '9001',
         PATH: '/root/.nvm/versions/node/v21.7.3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
       },
       error_file: '/root/.pm2/logs/pnt-stage-error.log',

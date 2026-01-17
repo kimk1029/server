@@ -180,7 +180,7 @@ if ! command -v pm2 >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "→ pm2 startOrReload (PORT=9991)"
+echo "→ pm2 startOrReload (PORT=9001)"
 pm2 startOrReload ecosystem.config.js --env "$PM2_ENV"
 
 echo "→ pm2 save (optional, ignore errors)"
