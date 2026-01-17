@@ -203,7 +203,6 @@ export const handleRoomLeave = (
   if (room.status === 'HIDING' || room.status === 'CHASE') {
     const remainingPlayers = Array.from(room.players.values());
     const remainingThieves = remainingPlayers.filter(p => p.team === 'THIEF');
-    const remainingPolices = remainingPlayers.filter(p => p.team === 'POLICE');
     
     // 혼자 남으면 그 사람이 우승자
     if (remainingPlayers.length === 1) {
