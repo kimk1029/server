@@ -1,16 +1,9 @@
-/**
- * PM2 ecosystem for stage server
- *
- * Usage on stage server:
- *   cd <REPO_ROOT>/server
- *   pm2 start ecosystem.config.js --env stage
- */
 module.exports = {
   apps: [
     {
       name: 'pnt-stage',
-      script: 'dist/index.js',
-      cwd: __dirname,
+      script: './dist/index.js',
+      cwd: '/kh_dev/server',  // 절대 경로로 명시
       instances: 1,
       exec_mode: 'fork',
       autorestart: true,
@@ -19,7 +12,9 @@ module.exports = {
         NODE_ENV: 'stage',
         PORT: '9991',
       },
+      error_file: '/root/.pm2/logs/pnt-stage-error.log',
+      out_file: '/root/.pm2/logs/pnt-stage-out.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss',
     },
   ],
 };
-
