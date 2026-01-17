@@ -54,6 +54,20 @@ export class WebRTCSignalingService {
     const currentHolder = this.pttTokens.get(roomId);
 
     if (currentHolder && currentHolder !== playerId) {
+      const room = this.roomManager.getRoom(roomId);
+      if (room) {
+        const holder = room.players.get(currentHolder);
+        this.broadcaster.sendToPlayer(playerId, {
+          type: 'ptt:status',
+          roomId,
+          playerId,
+          data: {
+            activeThiefId: currentHolder,
+            activeThiefNickname: holder?.nickname || ''
+          },
+          ts: Date.now()
+        });
+      }
       return false;
     }
 

@@ -95,7 +95,8 @@ export class MessageRouter {
             playerId,
             this.roomManager,
             this.playerManager,
-            this.broadcaster
+            this.broadcaster,
+            this.gameEngine
           );
           break;
 

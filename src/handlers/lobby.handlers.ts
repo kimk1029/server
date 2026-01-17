@@ -150,7 +150,8 @@ export const handleRoomLeave = (
   playerId: string,
   roomManager: RoomManager,
   playerManager: PlayerManager,
-  broadcaster: Broadcaster
+  broadcaster: Broadcaster,
+  gameEngine?: any
 ) => {
   const room = roomManager.getRoom(roomId);
   const ws = playerManager.getConnectionByPlayerId(playerId);
@@ -196,6 +197,44 @@ export const handleRoomLeave = (
       })
     );
     return;
+  }
+
+  // 게임 중일 때 플레이어가 나가면 승리 조건 체크
+  if (room.status === 'HIDING' || room.status === 'CHASE') {
+    const remainingPlayers = Array.from(room.players.values());
+    const remainingThieves = remainingPlayers.filter(p => p.team === 'THIEF');
+    const remainingPolices = remainingPlayers.filter(p => p.team === 'POLICE');
+    
+    // 혼자 남으면 그 사람이 우승자
+    if (remainingPlayers.length === 1) {
+      const winner = remainingPlayers[0];
+      const winnerTeam = winner.team || 'POLICE';
+      const result = {
+        winner: winnerTeam,
+        reason: winnerTeam === 'POLICE' ? '모든 도둑이 나갔습니다!' : '모든 경찰이 나갔습니다!',
+        stats: {
+          totalThieves: remainingThieves.length,
+          capturedCount: 0,
+          jailedCount: 0,
+          survivedThieves: remainingThieves.map(t => t.playerId),
+          captureHistory: []
+        }
+      };
+      
+      // 게임 종료 처리
+      if (gameEngine) {
+        // gameEngine의 stateMachine을 사용
+        const stateMachine = (gameEngine as any).stateMachine;
+        if (stateMachine) {
+          stateMachine.transition(room, 'END');
+        }
+        broadcaster.broadcastGameEnd(room, result);
+        logger.info('Game ended (single player remaining)', { roomId, winner: winnerTeam, playerId: winner.playerId });
+      }
+    } else if (room.status === 'CHASE' && gameEngine) {
+      // CHASE 중일 때는 승리 조건 체크 (모든 도둑이 나갔는지 등)
+      gameEngine.checkWinCondition(roomId);
+    }
   }
 
   ws?.send(

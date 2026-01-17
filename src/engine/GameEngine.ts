@@ -110,16 +110,38 @@ export class GameEngine {
     if (!room || room.status !== 'CHASE') return;
 
     const thieves = Array.from(room.players.values()).filter(p => p.team === 'THIEF');
+    
+    // 도둑이 없으면 경찰 승리
+    if (thieves.length === 0) {
+      const result = {
+        winner: 'POLICE' as const,
+        reason: '모든 도둑이 나갔습니다!',
+        stats: {
+          totalThieves: 0,
+          capturedCount: 0,
+          jailedCount: 0,
+          survivedThieves: [],
+          captureHistory: []
+        }
+      };
+      this.stateMachine.transition(room, 'END');
+      this.broadcaster.broadcastGameEnd(room, result);
+      this.cleanupTimers(roomId);
+      logger.info('Police win (no thieves remaining)', { roomId });
+      return;
+    }
+    
     const capturedOrJailedCount = thieves.filter(
       t => t.thiefStatus?.state === 'CAPTURED' || t.thiefStatus?.state === 'JAILED',
     ).length;
 
+    // 모든 도둑이 검거되거나 수감되면 경찰 승리
     if (capturedOrJailedCount === thieves.length && thieves.length > 0) {
       const result = this.winChecker.check(room);
       this.stateMachine.transition(room, 'END');
       this.broadcaster.broadcastGameEnd(room, result);
       this.cleanupTimers(roomId);
-      logger.info('Police win (all thieves captured)', { roomId });
+      logger.info('Police win (all thieves captured)', { roomId, capturedOrJailedCount, totalThieves: thieves.length });
     }
   }
 
