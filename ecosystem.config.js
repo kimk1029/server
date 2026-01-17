@@ -18,5 +18,19 @@ module.exports = {
       out_file: '/root/.pm2/logs/pnt-stage-out.log',
       log_date_format: 'YYYY-MM-DD HH:mm:ss',
     },
+    // TURN 서버 (Coturn) - systemd로 관리하는 것이 더 일반적이지만, PM2로도 가능
+    // 주의: Coturn은 systemd로 관리하는 것을 권장합니다 (ecosystem.config.js에서 제외)
+    // {
+    //   name: 'pnt-turn-server',
+    //   script: 'turnserver',
+    //   args: '-c /etc/turnserver.conf',
+    //   instances: 1,
+    //   exec_mode: 'fork',
+    //   autorestart: true,
+    //   max_restarts: 10,
+    //   error_file: '/root/.pm2/logs/pnt-turn-error.log',
+    //   out_file: '/root/.pm2/logs/pnt-turn-out.log',
+    //   log_date_format: 'YYYY-MM-DD HH:mm:ss',
+    // },
   ],
 };
