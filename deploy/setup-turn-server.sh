@@ -39,11 +39,12 @@ tls-listening-port=5349
 # 외부 IP (서버의 공인 IP로 변경 필요)
 # external-ip=YOUR_PUBLIC_IP
 
-# 릴레이 IP 범위 (로컬 네트워크)
+# 릴레이 IP (컨테이너/서버 환경에서는 CIDR 미지원 오류가 날 수 있어 단일 IP만 사용)
+# 필요 시 서버의 실제 내부 IP로 변경하세요.
 relay-ip=127.0.0.1
-relay-ip=10.0.0.0/8
-relay-ip=172.16.0.0/12
-relay-ip=192.168.0.0/16
+
+# 리스닝 IP (전체 바인딩)
+listening-ip=0.0.0.0
 
 # 사용자 인증
 user=${TURN_USERNAME}:${TURN_PASSWORD}
