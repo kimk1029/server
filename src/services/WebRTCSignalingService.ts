@@ -51,31 +51,67 @@ export class WebRTCSignalingService {
   }
 
   requestPTT(roomId: string, playerId: string): boolean {
+    const room = this.roomManager.getRoom(roomId);
+    if (!room) return false;
+
+    const requester = room.players.get(playerId);
+    if (!requester || requester.team !== 'THIEF') {
+      logger.warn('Non-thief tried to request PTT', { roomId, playerId });
+      return false;
+    }
+
     const currentHolder = this.pttTokens.get(roomId);
 
     if (currentHolder && currentHolder !== playerId) {
-      const room = this.roomManager.getRoom(roomId);
-      if (room) {
-        const holder = room.players.get(currentHolder);
-        this.broadcaster.sendToPlayer(playerId, {
-          type: 'ptt:status',
-          roomId,
-          playerId,
-          data: {
-            activeThiefId: currentHolder,
-            activeThiefNickname: holder?.nickname || ''
-          },
-          ts: Date.now()
-        });
-      }
+      const holder = room.players.get(currentHolder);
+      this.broadcaster.sendToPlayer(playerId, {
+        type: 'ptt:status',
+        roomId,
+        playerId,
+        data: {
+          activeThiefId: currentHolder,
+          activeThiefNickname: holder?.nickname || ''
+        },
+        ts: Date.now()
+      });
       return false;
     }
 
     this.pttTokens.set(roomId, playerId);
 
+    const thieves = Array.from(room.players.values()).filter(p => p.team === 'THIEF');
+
+    thieves.forEach(thief => {
+      this.broadcaster.sendToPlayer(thief.playerId, {
+        type: 'ptt:status',
+        roomId,
+        playerId: thief.playerId,
+        data: {
+          activeThiefId: playerId,
+          activeThiefNickname: requester.nickname || ''
+        },
+        ts: Date.now()
+      });
+    });
+
+    return true;
+  }
+
+  releasePTT(roomId: string, playerId: string): void {
     const room = this.roomManager.getRoom(roomId);
-    if (room) {
-      const player = room.players.get(playerId);
+    if (!room) return;
+
+    const requester = room.players.get(playerId);
+    if (!requester || requester.team !== 'THIEF') {
+      logger.warn('Non-thief tried to release PTT', { roomId, playerId });
+      return;
+    }
+
+    const currentHolder = this.pttTokens.get(roomId);
+
+    if (currentHolder === playerId) {
+      this.pttTokens.set(roomId, null);
+
       const thieves = Array.from(room.players.values()).filter(p => p.team === 'THIEF');
 
       thieves.forEach(thief => {
@@ -84,40 +120,12 @@ export class WebRTCSignalingService {
           roomId,
           playerId: thief.playerId,
           data: {
-            activeThiefId: playerId,
-            activeThiefNickname: player?.nickname || ''
+            activeThiefId: null,
+            activeThiefNickname: null
           },
           ts: Date.now()
         });
       });
-    }
-
-    return true;
-  }
-
-  releasePTT(roomId: string, playerId: string): void {
-    const currentHolder = this.pttTokens.get(roomId);
-
-    if (currentHolder === playerId) {
-      this.pttTokens.set(roomId, null);
-
-      const room = this.roomManager.getRoom(roomId);
-      if (room) {
-        const thieves = Array.from(room.players.values()).filter(p => p.team === 'THIEF');
-
-        thieves.forEach(thief => {
-          this.broadcaster.sendToPlayer(thief.playerId, {
-            type: 'ptt:status',
-            roomId,
-            playerId: thief.playerId,
-            data: {
-              activeThiefId: null,
-              activeThiefNickname: null
-            },
-            ts: Date.now()
-          });
-        });
-      }
     }
   }
 }
