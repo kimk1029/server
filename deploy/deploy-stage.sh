@@ -174,10 +174,19 @@ $NPM_PATH ci --no-audit --no-fund
 echo "→ npm run build"
 $NPM_PATH run build
 
+# PM2가 없으면 전역 설치
 if ! command -v pm2 >/dev/null 2>&1; then
-  echo "❌ pm2 not found. Install once on stage server:"
-  echo "   npm i -g pm2"
-  exit 1
+  echo "→ pm2 not found. Installing globally..."
+  $NPM_PATH install -g pm2
+  # 전역 설치 후 PATH에 반영 (nvm 사용 시)
+  if [ -n "${NVM_DIR:-}" ]; then
+    export PATH="$(dirname "$NODE_PATH"):$PATH"
+  fi
+  if ! command -v pm2 >/dev/null 2>&1; then
+    echo "❌ pm2 install failed. Try manually: npm i -g pm2"
+    exit 1
+  fi
+  echo "   pm2 installed: $(pm2 -v)"
 fi
 
 echo "→ pm2 startOrReload (PORT=9001)"
