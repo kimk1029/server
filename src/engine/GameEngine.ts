@@ -3,6 +3,7 @@ import { StateMachine } from './StateMachine';
 import { TeamAssigner } from './TeamAssigner';
 import { WinConditionChecker } from './WinConditionChecker';
 import { Broadcaster } from '../services/Broadcaster';
+import { BattleZoneService } from '../services/BattleZoneService';
 import { logger } from '../utils/logger';
 
 export class GameEngine {
@@ -13,7 +14,8 @@ export class GameEngine {
     private stateMachine: StateMachine,
     private teamAssigner: TeamAssigner,
     private winChecker: WinConditionChecker,
-    private broadcaster: Broadcaster
+    private broadcaster: Broadcaster,
+    private battleZoneService: BattleZoneService
   ) {}
 
   shuffleTeams(roomId: string): void {
@@ -116,6 +118,7 @@ export class GameEngine {
     this.stateMachine.transition(room, 'END');
     this.broadcaster.broadcastGameEnd(room, result);
 
+    this.battleZoneService.clearRoom(roomId);
     this.cleanupTimers(roomId);
     logger.info('Game ended', { roomId, winner: result.winner });
   }
@@ -141,6 +144,7 @@ export class GameEngine {
       };
       this.stateMachine.transition(room, 'END');
       this.broadcaster.broadcastGameEnd(room, result);
+      this.battleZoneService.clearRoom(roomId);
       this.cleanupTimers(roomId);
       logger.info('Police win (no thieves remaining)', { roomId });
       return;
@@ -155,6 +159,7 @@ export class GameEngine {
       const result = this.winChecker.check(room);
       this.stateMachine.transition(room, 'END');
       this.broadcaster.broadcastGameEnd(room, result);
+      this.battleZoneService.clearRoom(roomId);
       this.cleanupTimers(roomId);
       logger.info('Police win (all thieves captured)', { roomId, capturedOrJailedCount, totalThieves: thieves.length });
     }

@@ -9,14 +9,11 @@ import { DistanceValidator } from './validators/DistanceValidator';
 import { PermissionValidator } from './validators/PermissionValidator';
 import { Broadcaster } from './services/Broadcaster';
 import { ProximityService } from './services/ProximityService';
+import { BattleZoneService, BATTLE_ZONE_CHECK_INTERVAL_MS } from './services/BattleZoneService';
 import { WebRTCSignalingService } from './services/WebRTCSignalingService';
 import { MessageRouter } from './router';
 import { logger } from './utils/logger';
-import {
-  PROXIMITY_CHECK_INTERVAL_MS,
-  ROOM_CLEANUP_INTERVAL_MS,
-  ROOM_MAX_IDLE_MS
-} from './utils/constants';
+import { ROOM_CLEANUP_INTERVAL_MS, ROOM_MAX_IDLE_MS } from './utils/constants';
 
 const PORT = parseInt(process.env.PORT || '9001', 10);
 
@@ -30,6 +27,7 @@ export const startServer = () => {
   const distanceValidator = new DistanceValidator();
   const permissionValidator = new PermissionValidator();
   const proximityService = new ProximityService(broadcaster);
+  const battleZoneService = new BattleZoneService(broadcaster);
   const webrtcService = new WebRTCSignalingService(roomManager, broadcaster);
 
   const gameEngine = new GameEngine(
@@ -37,7 +35,8 @@ export const startServer = () => {
     stateMachine,
     teamAssigner,
     winChecker,
-    broadcaster
+    broadcaster,
+    battleZoneService
   );
 
   const messageRouter = new MessageRouter(
@@ -135,8 +134,9 @@ export const startServer = () => {
       if (room.status === 'CHASE') {
         proximityService.checkProximity(room);
       }
+      battleZoneService.checkBattleZone(room);
     });
-  }, PROXIMITY_CHECK_INTERVAL_MS);
+  }, BATTLE_ZONE_CHECK_INTERVAL_MS);
 
   setInterval(() => {
     const now = Date.now();
@@ -147,6 +147,7 @@ export const startServer = () => {
       const empty = room.players.size === 0;
 
       if (inactive || empty) {
+        battleZoneService.clearRoom(room.roomId);
         roomManager.deleteRoom(room.roomId);
         logger.info('Room cleaned up', { roomId: room.roomId, reason: inactive ? 'inactive' : 'empty' });
       }

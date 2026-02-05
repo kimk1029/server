@@ -6,7 +6,13 @@ export class WinConditionChecker {
   check(room: Room): GameResult {
     const thieves = Array.from(room.players.values()).filter(p => p.team === 'THIEF');
     const totalThieves = thieves.length;
-    const capturedOrJailed = thieves.filter(t => t.thiefStatus?.state === 'CAPTURED' || t.thiefStatus?.state === 'JAILED');
+    const capturedOrJailed = thieves.filter(
+      t =>
+        t.thiefStatus?.state === 'CAPTURED' ||
+        t.thiefStatus?.state === 'JAILED' ||
+        t.thiefStatus?.state === 'OUT_OF_ZONE' ||
+        t.outOfZoneAt != null
+    );
     const capturedOrJailedCount = capturedOrJailed.length;
 
     // 기본 룰: 모든 도둑을 "검거(캡처)"하거나 수감하면 경찰 승리
@@ -18,8 +24,12 @@ export class WinConditionChecker {
       };
     }
 
-    // 시간 종료 시점에 아직 FREE인 도둑이 1명이라도 있으면 도둑 승리
-    const survivedThieves = thieves.filter(t => t.thiefStatus?.state === 'FREE');
+    // 시간 종료 시점에 아직 FREE(탈락·검거·수감 아님)인 도둑이 1명이라도 있으면 도둑 승리
+    const survivedThieves = thieves.filter(
+      t =>
+        t.thiefStatus?.state === 'FREE' &&
+        t.outOfZoneAt == null
+    );
     return {
       winner: 'THIEF',
       reason: `${survivedThieves.length}명의 도둑이 생존했습니다!`,
@@ -31,7 +41,7 @@ export class WinConditionChecker {
     const captureHistory: CaptureRecord[] = [];
 
     thieves.forEach(thief => {
-      if (thief.thiefStatus && thief.thiefStatus.state !== 'FREE') {
+      if (thief.thiefStatus && (thief.thiefStatus.state === 'CAPTURED' || thief.thiefStatus.state === 'JAILED')) {
         const police = room.players.get(thief.thiefStatus.capturedBy || '');
         captureHistory.push({
           thiefId: thief.playerId,
@@ -49,7 +59,7 @@ export class WinConditionChecker {
       capturedCount: thieves.filter(t => t.thiefStatus?.state !== 'FREE').length,
       jailedCount: thieves.filter(t => t.thiefStatus?.state === 'JAILED').length,
       survivedThieves: thieves
-        .filter(t => t.thiefStatus?.state !== 'JAILED')
+        .filter(t => t.thiefStatus?.state === 'FREE' && t.outOfZoneAt == null)
         .map(t => t.playerId),
       captureHistory: captureHistory.sort((a, b) => a.capturedAt - b.capturedAt)
     };
