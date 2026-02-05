@@ -143,6 +143,7 @@ export class MessageRouter {
           gameHandlers.handleGameStart(
             roomId,
             playerId,
+            payload,
             this.gameEngine,
             this.permissionValidator,
             this.roomManager,

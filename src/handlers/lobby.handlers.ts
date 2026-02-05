@@ -384,7 +384,7 @@ export const handleRoomSettingsUpdate = (
   const next = payload?.settings || payload || {};
 
   // allowlist only (avoid arbitrary overwrite)
-  if (next.gameMode === 'BASIC' || next.gameMode === 'ITEM_FIND') room.settings.gameMode = next.gameMode;
+  if (next.gameMode === 'BASIC' || next.gameMode === 'BATTLE' || next.gameMode === 'ITEM_FIND') room.settings.gameMode = next.gameMode;
   if (typeof next.hidingSeconds === 'number') room.settings.hidingSeconds = Math.max(5, Math.min(600, next.hidingSeconds));
   if (typeof next.chaseSeconds === 'number') room.settings.chaseSeconds = Math.max(30, Math.min(3600, next.chaseSeconds));
   if (typeof next.proximityRadiusMeters === 'number')
