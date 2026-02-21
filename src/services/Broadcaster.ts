@@ -2,6 +2,7 @@ import { PlayerManager } from '../managers/PlayerManager';
 import { Room } from '../types/room.types';
 import { GameResult } from '../types/game.types';
 import { logger } from '../utils/logger';
+import { getBattleZoneRadiusMeters } from '../utils/battleZone';
 
 export class Broadcaster {
   constructor(private playerManager: PlayerManager) {}
@@ -52,6 +53,11 @@ export class Broadcaster {
       playerIds: Array.from(room.players.keys())
     });
     
+    const zoneRadiusMeters =
+      room.settings.gameMode === 'BATTLE' && room.status === 'CHASE'
+        ? getBattleZoneRadiusMeters(room)
+        : null;
+
     const message = {
       type: 'game:state',
       roomId: room.roomId,
@@ -60,7 +66,8 @@ export class Broadcaster {
         phaseEndsAt: room.phaseEndsAt,
         basecamp: room.basecamp,
         settings: room.settings,
-        players: serializedPlayers
+        players: serializedPlayers,
+        ...(zoneRadiusMeters != null && { zoneRadiusMeters })
       },
       ts: Date.now()
     };
@@ -121,7 +128,8 @@ export class Broadcaster {
       connected: p.connected,
       thiefStatus: p.thiefStatus,
       // 실시간 위치 표시를 위해 항상 location 정보 포함
-      location: p.location ?? null
+      location: p.location ?? null,
+      outOfZoneAt: (p as any).outOfZoneAt ?? null
     }));
     
     logger.info('Serialized players', { 

@@ -1,6 +1,6 @@
 export const DEFAULT_ROOM_SETTINGS = {
   maxPlayers: 20,
-  gameMode: 'BASIC' as const,
+  gameMode: 'BASIC' as 'BASIC' | 'BATTLE',
   hidingSeconds: 60,
   chaseSeconds: 300, // 기본 5분
   proximityRadiusMeters: 30,

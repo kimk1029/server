@@ -384,7 +384,7 @@ export const handleRoomSettingsUpdate = (
   const next = payload?.settings || payload || {};
 
   // allowlist only (avoid arbitrary overwrite)
-  if (next.gameMode === 'BASIC' || next.gameMode === 'ITEM_FIND') room.settings.gameMode = next.gameMode;
+  if (next.gameMode === 'BASIC' || next.gameMode === 'BATTLE') room.settings.gameMode = next.gameMode;
   if (typeof next.hidingSeconds === 'number') room.settings.hidingSeconds = Math.max(5, Math.min(600, next.hidingSeconds));
   if (typeof next.chaseSeconds === 'number') room.settings.chaseSeconds = Math.max(30, Math.min(3600, next.chaseSeconds));
   if (typeof next.proximityRadiusMeters === 'number')
@@ -393,6 +393,7 @@ export const handleRoomSettingsUpdate = (
     room.settings.captureRadiusMeters = Math.max(1, Math.min(100, next.captureRadiusMeters));
   if (typeof next.jailRadiusMeters === 'number') room.settings.jailRadiusMeters = Math.max(1, Math.min(200, next.jailRadiusMeters));
   if (typeof next.maxPlayers === 'number') room.settings.maxPlayers = Math.max(2, Math.min(100, next.maxPlayers));
+  if (typeof next.battleZoneRadiusM === 'number') room.settings.battleZoneRadiusM = Math.max(50, Math.min(500, next.battleZoneRadiusM));
 
   ws?.send(
     JSON.stringify({

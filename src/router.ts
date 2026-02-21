@@ -157,7 +157,8 @@ export class MessageRouter {
             playerId,
             payload,
             this.roomManager,
-            this.broadcaster
+            this.broadcaster,
+            this.gameEngine
           );
           break;
 

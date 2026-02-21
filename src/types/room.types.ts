@@ -1,6 +1,6 @@
 export type RoomStatus = 'LOBBY' | 'HIDING' | 'CHASE' | 'END';
 
-export type GameMode = 'BASIC' | 'ITEM_FIND';
+export type GameMode = 'BASIC' | 'BATTLE';
 
 export interface RoomSettings {
   maxPlayers: number;
@@ -10,6 +10,7 @@ export interface RoomSettings {
   proximityRadiusMeters: number;
   captureRadiusMeters: number;
   jailRadiusMeters: number;
+  battleZoneRadiusM?: number;
 }
 
 export interface Basecamp {

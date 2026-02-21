@@ -107,10 +107,27 @@ export class GameEngine {
 
   checkWinCondition(roomId: string): void {
     const room = this.roomManager.getRoom(roomId);
-    if (!room || room.status !== 'CHASE') return;
+    if (!room || (room.status !== 'CHASE' && room.status !== 'HIDING')) return;
 
-    const thieves = Array.from(room.players.values()).filter(p => p.team === 'THIEF');
-    
+    const players = Array.from(room.players.values());
+    const thieves = players.filter(p => p.team === 'THIEF');
+    const polices = players.filter(p => p.team === 'POLICE');
+
+    // BATTLE 모드: 경찰 전원 탈락 시 도둑 승리
+    if (room.settings.gameMode === 'BATTLE' && polices.length > 0) {
+      const allPoliceOut = polices.every(p => !!(p as any).outOfZoneAt);
+      if (allPoliceOut) {
+        const result = this.winChecker.check(room);
+        result.winner = 'THIEF';
+        result.reason = '모든 경찰이 자기장 밖으로 탈락했습니다!';
+        this.stateMachine.transition(room, 'END');
+        this.broadcaster.broadcastGameEnd(room, result);
+        this.cleanupTimers(roomId);
+        logger.info('Thief win (all police eliminated)', { roomId });
+        return;
+      }
+    }
+
     // 도둑이 없으면 경찰 승리
     if (thieves.length === 0) {
       const result = {
@@ -130,18 +147,22 @@ export class GameEngine {
       logger.info('Police win (no thieves remaining)', { roomId });
       return;
     }
-    
-    const capturedOrJailedCount = thieves.filter(
-      t => t.thiefStatus?.state === 'CAPTURED' || t.thiefStatus?.state === 'JAILED',
-    ).length;
 
-    // 모든 도둑이 검거되거나 수감되면 경찰 승리
-    if (capturedOrJailedCount === thieves.length && thieves.length > 0) {
+    // 모든 도둑이 검거/수감/자기장탈락 시 경찰 승리
+    const allThievesOut = thieves.every(
+      t =>
+        t.thiefStatus?.state === 'CAPTURED' ||
+        t.thiefStatus?.state === 'JAILED' ||
+        t.thiefStatus?.state === 'OUT_OF_ZONE' ||
+        !!(t as any).outOfZoneAt
+    );
+
+    if (allThievesOut && thieves.length > 0) {
       const result = this.winChecker.check(room);
       this.stateMachine.transition(room, 'END');
       this.broadcaster.broadcastGameEnd(room, result);
       this.cleanupTimers(roomId);
-      logger.info('Police win (all thieves captured)', { roomId, capturedOrJailedCount, totalThieves: thieves.length });
+      logger.info('Police win (all thieves captured/eliminated)', { roomId, totalThieves: thieves.length });
     }
   }
 
