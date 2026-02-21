@@ -45,6 +45,7 @@ export const handleTeamShuffle = (
 export const handleGameStart = (
   roomId: string,
   playerId: string,
+  payload: { basecamp?: { lat: number; lng: number } } | undefined,
   gameEngine: GameEngine,
   permissionValidator: PermissionValidator,
   roomManager: RoomManager,
@@ -67,7 +68,7 @@ export const handleGameStart = (
   }
 
   try {
-    gameEngine.startGame(roomId);
+    gameEngine.startGame(roomId, payload);
   } catch (error: any) {
     const ws = playerManager.getConnectionByPlayerId(playerId);
     ws?.send(
