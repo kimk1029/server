@@ -129,6 +129,11 @@ export class GameEngine {
     if (!room || room.status !== 'CHASE') return;
 
     const result = this.winChecker.check(room);
+    // 게임 시간 만료로 끝난 경우: 도둑이 모두 검거되지 않았어도 경찰 승리
+    if (result.winner === 'THIEF') {
+      result.winner = 'POLICE';
+      result.reason = '시간 종료! 경찰 승리!';
+    }
     this.stateMachine.transition(room, 'END');
     this.broadcaster.broadcastGameEnd(room, result);
 
