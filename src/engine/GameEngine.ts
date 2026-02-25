@@ -168,15 +168,27 @@ export class GameEngine {
     }
 
     // 모든 도둑이 검거/수감/자기장탈락 시 경찰 승리
-    const allThievesOut = thieves.every(
-      t =>
-        t.thiefStatus?.state === 'CAPTURED' ||
-        t.thiefStatus?.state === 'JAILED' ||
-        t.thiefStatus?.state === 'OUT_OF_ZONE' ||
-        !!(t as any).outOfZoneAt
-    );
+    // 연결 끊긴 도둑은 '탈락'으로 간주하여, 연결된 도둑만 모두 처리되면 종료
+    const isThiefOut = (t: (typeof thieves)[number]) =>
+      !t.connected ||
+      t.thiefStatus?.state === 'CAPTURED' ||
+      t.thiefStatus?.state === 'JAILED' ||
+      t.thiefStatus?.state === 'OUT_OF_ZONE' ||
+      !!(t as any).outOfZoneAt;
 
-    if (allThievesOut && thieves.length > 0) {
+    const allThievesOut = thieves.length > 0 && thieves.every(isThiefOut);
+
+    if (allThievesOut) {
+      logger.info('Police win condition met', {
+        roomId,
+        totalThieves: thieves.length,
+        thiefStates: thieves.map(t => ({
+          playerId: t.playerId,
+          connected: t.connected,
+          state: t.thiefStatus?.state,
+          outOfZoneAt: (t as any).outOfZoneAt,
+        })),
+      });
       const result = this.winChecker.check(room);
       this.stateMachine.transition(room, 'END');
       this.broadcaster.broadcastGameEnd(room, result);
