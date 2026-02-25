@@ -147,6 +147,8 @@ export const startServer = () => {
       }
       battleZoneService.checkBattleZone(room);
     });
+    // 게임 시간 만료 시 강제 종료 (setTimeout 유실 시 안전망)
+    gameEngine.tickPhaseTimeouts();
   }, BATTLE_ZONE_CHECK_INTERVAL_MS);
 
   setInterval(() => {

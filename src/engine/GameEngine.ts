@@ -110,6 +110,20 @@ export class GameEngine {
     logger.info('Chase phase started', { roomId });
   }
 
+  /** CHASE 시간이 만료된 방을 강제 종료. 주기적으로 호출하여 setTimeout 유실 시에도 게임이 끝나도록 함. */
+  tickPhaseTimeouts(): void {
+    const now = Date.now();
+    const rooms = this.roomManager.getAllRooms();
+    for (const room of rooms) {
+      if (room.status !== 'CHASE') continue;
+      if (room.phaseEndsAt == null) continue;
+      if (now >= room.phaseEndsAt) {
+        logger.info('Chase phase time expired (tick), ending game', { roomId: room.roomId });
+        this.endChasePhase(room.roomId);
+      }
+    }
+  }
+
   private endChasePhase(roomId: string): void {
     const room = this.roomManager.getRoom(roomId);
     if (!room || room.status !== 'CHASE') return;
@@ -199,27 +213,49 @@ export class GameEngine {
   }
 
   /**
-   * 플레이어 접속 해제 시 게임을 즉시 종료하고 모든 세션에 알립니다.
-   * HIDING / CHASE 중에만 동작하며, 이미 END 상태면 무시합니다.
+   * 플레이어 접속 해제 시, 한 팀이 전원 이탈했을 때만 게임을 종료합니다.
+   * 도둑 전원 이탈 → 경찰 승리, 경찰 전원 이탈 → 도둑 승리.
+   * 한 팀이라도 남아 있으면 게임은 계속되고 game:state만 브로드캐스트합니다.
    */
   handlePlayerDisconnect(roomId: string, playerId: string): void {
     const room = this.roomManager.getRoom(roomId);
     if (!room) return;
     if (room.status !== 'HIDING' && room.status !== 'CHASE') return;
 
-    const player = room.players.get(playerId);
-    const nickname = player?.nickname ?? '알 수 없음';
+    const players = Array.from(room.players.values());
+    const thieves = players.filter(p => p.team === 'THIEF');
+    const polices = players.filter(p => p.team === 'POLICE');
+    const connectedThieves = thieves.filter(p => p.connected);
+    const connectedPolices = polices.filter(p => p.connected);
 
-    // 현재 상태 기준으로 승패를 판정하되 reason만 덮어씀
-    const result = this.winChecker.check(room);
-    result.reason = `${nickname}님이 게임에서 나갔습니다. 게임이 종료됩니다.`;
+    const allThievesLeft = thieves.length > 0 && connectedThieves.length === 0;
+    const allPolicesLeft = polices.length > 0 && connectedPolices.length === 0;
 
-    this.stateMachine.transition(room, 'END');
-    this.broadcaster.broadcastGameEnd(room, result);
-    this.battleZoneService.clearRoom(roomId);
-    this.cleanupTimers(roomId);
+    if (allThievesLeft) {
+      const result = this.winChecker.check(room);
+      result.winner = 'POLICE';
+      result.reason = '도둑 팀이 모두 나갔습니다. 경찰 승리!';
+      this.stateMachine.transition(room, 'END');
+      this.broadcaster.broadcastGameEnd(room, result);
+      this.battleZoneService.clearRoom(roomId);
+      this.cleanupTimers(roomId);
+      logger.info('Game ended (all thieves left)', { roomId });
+      return;
+    }
+    if (allPolicesLeft) {
+      const result = this.winChecker.check(room);
+      result.winner = 'THIEF';
+      result.reason = '경찰 팀이 모두 나갔습니다. 도둑 승리!';
+      this.stateMachine.transition(room, 'END');
+      this.broadcaster.broadcastGameEnd(room, result);
+      this.battleZoneService.clearRoom(roomId);
+      this.cleanupTimers(roomId);
+      logger.info('Game ended (all police left)', { roomId });
+      return;
+    }
 
-    logger.info('Game force-ended (player disconnected)', { roomId, playerId, nickname });
+    this.broadcaster.broadcastGameState(room);
+    logger.info('Player disconnected, game continues', { roomId, playerId });
   }
 
   private cleanupTimers(roomId: string): void {
