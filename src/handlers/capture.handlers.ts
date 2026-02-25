@@ -57,21 +57,27 @@ export const handleCaptureRequest = (
     return;
   }
 
-  const validation = distanceValidator.validateCapture(
-    police.location,
-    thief.location,
-    room.settings.captureRadiusMeters
-  );
+  const captureSource: string = payload.source ?? 'button';
 
-  if (!validation.valid) {
-    broadcaster.sendToPlayer(playerId, {
-      type: 'capture:result',
-      success: false,
-      error: validation.error,
-      ts: Date.now()
-    });
-    return;
+  if (captureSource !== 'qr') {
+    // 버튼 검거: 거리 + 위치 신선도 검증 (60초 허용)
+    const validation = distanceValidator.validateCapture(
+      police.location,
+      thief.location,
+      room.settings.captureRadiusMeters,
+      60000
+    );
+    if (!validation.valid) {
+      broadcaster.sendToPlayer(playerId, {
+        type: 'capture:result',
+        success: false,
+        error: validation.error,
+        ts: Date.now()
+      });
+      return;
+    }
   }
+  // QR 검거: 물리적 QR 스캔이 근접을 증명하므로 거리 검증 생략
 
   const now = Date.now();
   thief.thiefStatus = {

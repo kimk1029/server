@@ -127,10 +127,9 @@ export class Broadcaster {
       ready: p.ready,
       connected: p.connected,
       thiefStatus: p.thiefStatus,
-      outOfZoneAt: p.outOfZoneAt ?? null,
-      // 실시간 위치 표시를 위해 항상 location 정보 포함
       location: p.location ?? null,
-      outOfZoneAt: (p as any).outOfZoneAt ?? null
+      outOfZoneAt: (p as any).outOfZoneAt ?? null,
+      outsideZoneSince: (p as any).outsideZoneSince ?? null,
     }));
     
     logger.info('Serialized players', { 

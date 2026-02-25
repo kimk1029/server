@@ -57,7 +57,7 @@ export class GameEngine {
     const room = this.roomManager.getRoom(roomId);
     if (!room) throw new Error('Room not found');
 
-    // BATTLE 모드: 방장의 현재 위치를 베이스캠프로 설정 (모든 플레이어에게 동일한 자기장 중심)
+    // 모든 모드: 방장의 현재 위치를 베이스캠프로 설정 (game:start 페이로드로 전달됨)
     const basecampFromPayload = payload?.basecamp;
     if (
       basecampFromPayload &&
@@ -71,7 +71,7 @@ export class GameEngine {
         lng: basecampFromPayload.lng,
         setAt: Date.now()
       };
-      logger.info('Basecamp set from host position (BATTLE mode)', { roomId, basecamp: room.basecamp });
+      logger.info('Basecamp set from host position', { roomId, basecamp: room.basecamp });
     }
 
     // 개발/테스트 편의: basecamp 미설정이어도 시작 허용
@@ -184,6 +184,30 @@ export class GameEngine {
       this.cleanupTimers(roomId);
       logger.info('Police win (all thieves captured/eliminated)', { roomId, totalThieves: thieves.length });
     }
+  }
+
+  /**
+   * 플레이어 접속 해제 시 게임을 즉시 종료하고 모든 세션에 알립니다.
+   * HIDING / CHASE 중에만 동작하며, 이미 END 상태면 무시합니다.
+   */
+  handlePlayerDisconnect(roomId: string, playerId: string): void {
+    const room = this.roomManager.getRoom(roomId);
+    if (!room) return;
+    if (room.status !== 'HIDING' && room.status !== 'CHASE') return;
+
+    const player = room.players.get(playerId);
+    const nickname = player?.nickname ?? '알 수 없음';
+
+    // 현재 상태 기준으로 승패를 판정하되 reason만 덮어씀
+    const result = this.winChecker.check(room);
+    result.reason = `${nickname}님이 게임에서 나갔습니다. 게임이 종료됩니다.`;
+
+    this.stateMachine.transition(room, 'END');
+    this.broadcaster.broadcastGameEnd(room, result);
+    this.battleZoneService.clearRoom(roomId);
+    this.cleanupTimers(roomId);
+
+    logger.info('Game force-ended (player disconnected)', { roomId, playerId, nickname });
   }
 
   private cleanupTimers(roomId: string): void {

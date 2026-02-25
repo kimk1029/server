@@ -39,6 +39,11 @@ export const startServer = () => {
     battleZoneService
   );
 
+  // BattleZoneService 탈락 콜백: 탈락 직후 승리 조건 체크
+  battleZoneService.setEliminateCallback((roomId) => {
+    gameEngine.checkWinCondition(roomId);
+  });
+
   const messageRouter = new MessageRouter(
     roomManager,
     playerManager,
@@ -104,8 +109,14 @@ export const startServer = () => {
             if (player) {
               player.connected = false;
               room.players.set(playerId, player);
-              logger.info('Player marked disconnected (socket close)', { roomId, playerId });
-              broadcaster.broadcastGameState(room);
+              logger.info('Player disconnected', { roomId, playerId, status: room.status });
+
+              if (room.status === 'HIDING' || room.status === 'CHASE') {
+                // 게임 중 접속 해제 → 즉시 게임 종료 + 전원 알림
+                gameEngine.handlePlayerDisconnect(roomId, playerId);
+              } else {
+                broadcaster.broadcastGameState(room);
+              }
             }
           }
         }

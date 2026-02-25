@@ -1,58 +1,54 @@
 import { Room } from '../types/room.types';
-import { calculateDistance } from '../utils/distance';
 import { Broadcaster } from './Broadcaster';
-import { getBattleZoneRadiusMeters, BATTLE_ZONE_INITIAL_RADIUS_M } from '../utils/battleZone';
+import { getBattleZoneRadiusMeters } from '../utils/battleZone';
 import { logger } from '../utils/logger';
 
-/** 자기장 밖에 있어도 허용되는 시간 (ms) */
-const OUT_OF_ZONE_GRACE_MS = 5000;
-
-/** 자기장 체크 주기 (ms) */
 export const BATTLE_ZONE_CHECK_INTERVAL_MS = 1000;
 
-/** 플레이어별 자기장 밖 진입 시각 추적 */
+const OUT_OF_ZONE_GRACE_MS = 5000;
 const outsideSinceByPlayer = new Map<string, number>();
 
 export class BattleZoneService {
+  private onPlayerEliminated?: (roomId: string, playerId: string) => void;
+
   constructor(private broadcaster: Broadcaster) {}
+
+  setEliminateCallback(cb: (roomId: string, playerId: string) => void): void {
+    this.onPlayerEliminated = cb;
+  }
 
   checkBattleZone(room: Room): void {
     if (room.settings.gameMode !== 'BATTLE') return;
     if (room.status !== 'HIDING' && room.status !== 'CHASE') return;
-    if (!room.basecamp || typeof room.basecamp.lat !== 'number' || typeof room.basecamp.lng !== 'number') return;
+    if (
+      !room.basecamp ||
+      typeof room.basecamp.lat !== 'number' ||
+      typeof room.basecamp.lng !== 'number' ||
+      (room.basecamp.lat === 0 && room.basecamp.lng === 0)
+    ) return;
 
     const now = Date.now();
     const basecamp = room.basecamp;
-
-    const radius =
-      room.status === 'HIDING'
-        ? BATTLE_ZONE_INITIAL_RADIUS_M
-        : getBattleZoneRadiusMeters(
-            room.phaseEndsAt,
-            room.settings.hidingSeconds,
-            room.settings.chaseSeconds,
-            now
-          );
-
+    const radius = getBattleZoneRadiusMeters(room);
     if (radius == null) return;
 
     const roomKey = room.roomId;
 
     for (const player of room.players.values()) {
+      if ((player as any).outOfZoneAt) continue;
       if (!player.location) continue;
 
       const loc = player.location;
-      const distance = calculateDistance(basecamp.lat, basecamp.lng, loc.lat, loc.lng);
-      const isOutside = distance > radius;
-
+      const dx = (loc.lat - basecamp.lat) * 111000;
+      const dy = (loc.lng - basecamp.lng) * 111000 * Math.cos((basecamp.lat * Math.PI) / 180);
+      const distance = Math.sqrt(dx * dx + dy * dy);
       const playerKey = `${roomKey}:${player.playerId}`;
 
-      if (isOutside) {
+      if (distance > radius) {
         const firstOutsideAt = outsideSinceByPlayer.get(playerKey) ?? now;
         outsideSinceByPlayer.set(playerKey, firstOutsideAt);
 
-        const elapsedOutside = now - firstOutsideAt;
-        if (elapsedOutside >= OUT_OF_ZONE_GRACE_MS) {
+        if (now - firstOutsideAt >= OUT_OF_ZONE_GRACE_MS) {
           this.eliminatePlayer(room, player.playerId);
           outsideSinceByPlayer.delete(playerKey);
         }
@@ -64,7 +60,7 @@ export class BattleZoneService {
 
   private eliminatePlayer(room: Room, playerId: string): void {
     const player = room.players.get(playerId);
-    if (!player) return;
+    if (!player || (player as any).outOfZoneAt) return;
 
     const now = Date.now();
 
@@ -76,18 +72,21 @@ export class BattleZoneService {
           capturedAt: null,
           jailedAt: null,
         };
-        player.outOfZoneAt = now;
-        logger.info('Thief eliminated (out of zone)', { roomId: room.roomId, playerId, nickname: player.nickname });
+        (player as any).outOfZoneAt = now;
+        logger.info('Thief eliminated (out of zone)', { roomId: room.roomId, playerId });
       }
     } else if (player.team === 'POLICE') {
-      player.outOfZoneAt = now;
-      logger.info('Police eliminated (out of zone)', { roomId: room.roomId, playerId, nickname: player.nickname });
+      (player as any).outOfZoneAt = now;
+      logger.info('Police eliminated (out of zone)', { roomId: room.roomId, playerId });
     }
 
     this.broadcaster.broadcastGameState(room);
+
+    if (this.onPlayerEliminated) {
+      this.onPlayerEliminated(room.roomId, playerId);
+    }
   }
 
-  /** 게임/방 종료 시 해당 방 플레이어 추적 초기화 */
   clearRoom(roomId: string): void {
     for (const key of outsideSinceByPlayer.keys()) {
       if (key.startsWith(`${roomId}:`)) outsideSinceByPlayer.delete(key);

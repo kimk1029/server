@@ -1,6 +1,6 @@
 import { Room } from '../types/room.types';
 
-const BATTLE_ZONE_DEFAULT_RADIUS_M = 100;
+export const BATTLE_ZONE_DEFAULT_RADIUS_M = 100;
 const BATTLE_ZONE_MIN_RATIO = 0.3;
 const SHRINK_START_ELAPSED_RATIO = 0.4;
 

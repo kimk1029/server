@@ -3,6 +3,7 @@ import { Broadcaster } from '../services/Broadcaster';
 import { GameEngine } from '../engine/GameEngine';
 import { calculateDistance } from '../utils/distance';
 import { getBattleZoneRadiusMeters } from '../utils/battleZone';
+import { logger } from '../utils/logger';
 
 export const handleLocationUpdate = (
   roomId: string,
@@ -28,31 +29,21 @@ export const handleLocationUpdate = (
     updatedAt: Date.now()
   };
 
-  // 모든 모드: 베이스캠프 미설정(0,0)일 때 HIDING 단계에서 첫 위치로 자동 설정
+  // 모든 모드: 베이스캠프가 (0,0)일 때 방장의 첫 위치로 설정
+  // game:start 페이로드로 설정 실패 시 폴백 (game:start에서 이미 설정되면 이 조건은 만족 안 됨)
   if (
-    room.status === 'HIDING' &&
+    (room.status === 'HIDING' || room.status === 'CHASE') &&
     room.basecamp &&
     room.basecamp.lat === 0 &&
     room.basecamp.lng === 0 &&
-    room.settings.gameMode !== 'BATTLE'
+    player.role === 'HOST'
   ) {
     room.basecamp = {
       lat: payload.lat,
       lng: payload.lng,
       setAt: Date.now()
     };
-    broadcaster.broadcastGameState(room);
-  }
-
-  // BATTLE 모드: 방장의 첫 유효 위치로 베이스캠프 설정
-  if (
-    room.settings.gameMode === 'BATTLE' &&
-    (room.status === 'HIDING' || room.status === 'CHASE') &&
-    room.basecamp &&
-    room.basecamp.lat === 0 && room.basecamp.lng === 0 &&
-    player.role === 'HOST'
-  ) {
-    room.basecamp = { lat: payload.lat, lng: payload.lng, setAt: Date.now() };
+    logger.info('Basecamp set from HOST first location (fallback)', { roomId, basecamp: room.basecamp });
     broadcaster.broadcastGameState(room);
   }
 
@@ -112,7 +103,5 @@ export const handleLocationUpdate = (
       },
       ts: Date.now()
     });
-  }
-};
   }
 };
