@@ -7,6 +7,7 @@ import { DistanceValidator } from './validators/DistanceValidator';
 import { PermissionValidator } from './validators/PermissionValidator';
 import { Broadcaster } from './services/Broadcaster';
 import { WebRTCSignalingService } from './services/WebRTCSignalingService';
+import { VisibilityService } from './services/VisibilityService';
 import * as lobbyHandlers from './handlers/lobby.handlers';
 import * as gameHandlers from './handlers/game.handlers';
 import * as locationHandlers from './handlers/location.handlers';
@@ -22,7 +23,8 @@ export class MessageRouter {
     private distanceValidator: DistanceValidator,
     private permissionValidator: PermissionValidator,
     private broadcaster: Broadcaster,
-    private webrtcService: WebRTCSignalingService
+    private webrtcService: WebRTCSignalingService,
+    private visibilityService: VisibilityService
   ) {}
 
   handleMessage(_ws: WebSocket<unknown>, message: BaseMessage): void {
@@ -30,6 +32,12 @@ export class MessageRouter {
 
     if (!playerId) {
       logger.warn('Message without playerId', { type });
+      return;
+    }
+
+    if (type === 'ping') {
+      // 앱 레벨 하트비트: 클라이언트가 죽은 연결(half-open)을 빨리 감지하도록 응답
+      _ws.send(JSON.stringify({ type: 'pong', ts: Date.now() }));
       return;
     }
 
@@ -90,6 +98,7 @@ export class MessageRouter {
         case 'room:leave':
         case 'LEAVE_ROOM':
           if (!roomId) return;
+          this.webrtcService.forceReleasePTT(roomId, playerId);
           lobbyHandlers.handleRoomLeave(
             roomId,
             playerId,
@@ -159,7 +168,8 @@ export class MessageRouter {
             payload,
             this.roomManager,
             this.broadcaster,
-            this.gameEngine
+            this.gameEngine,
+            this.visibilityService
           );
           break;
 

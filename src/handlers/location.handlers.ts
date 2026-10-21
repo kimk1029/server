@@ -1,6 +1,7 @@
 import { RoomManager } from '../managers/RoomManager';
 import { Broadcaster } from '../services/Broadcaster';
 import { GameEngine } from '../engine/GameEngine';
+import { VisibilityService } from '../services/VisibilityService';
 import { calculateDistance } from '../utils/distance';
 import { getBattleZoneRadiusMeters } from '../utils/battleZone';
 import { logger } from '../utils/logger';
@@ -11,8 +12,19 @@ export const handleLocationUpdate = (
   payload: any,
   roomManager: RoomManager,
   broadcaster: Broadcaster,
-  gameEngine?: GameEngine
+  gameEngine?: GameEngine,
+  visibility?: VisibilityService
 ) => {
+  if (
+    !payload ||
+    typeof payload.lat !== 'number' ||
+    typeof payload.lng !== 'number' ||
+    !isFinite(payload.lat) ||
+    !isFinite(payload.lng)
+  ) {
+    return;
+  }
+
   const room = roomManager.getRoom(roomId);
   if (!room) return;
 
@@ -25,7 +37,7 @@ export const handleLocationUpdate = (
   player.location = {
     lat: payload.lat,
     lng: payload.lng,
-    accuracy: payload.accuracy,
+    accuracy: typeof payload.accuracy === 'number' ? payload.accuracy : 0,
     updatedAt: Date.now()
   };
 
@@ -85,23 +97,11 @@ export const handleLocationUpdate = (
     }
   }
 
-  // 게임 상태와 무관하게 위치 업데이트 브로드캐스트
-  if (room.status !== 'END') {
-    console.log('[LOC][Server] location:update broadcast', {
-      roomId,
-      playerId,
-      team: player.team,
-      location: player.location,
-      status: room.status,
-    });
-    broadcaster.broadcastToRoom(roomId, {
-      type: 'location:update',
-      data: {
-        playerId,
-        location: player.location,
-        team: player.team
-      },
-      ts: Date.now()
-    });
+  if (room.status === 'END') return;
+
+  // 근접 공개 집합을 먼저 갱신한 뒤, 볼 수 있는 사람에게만 위치를 전송
+  if (visibility) {
+    visibility.refresh(room, playerId);
+    broadcaster.broadcastLocation(room, playerId);
   }
 };

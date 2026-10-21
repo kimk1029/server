@@ -1,9 +1,11 @@
 import { RoomManager } from '../managers/RoomManager';
 import { Broadcaster } from './Broadcaster';
 import { logger } from '../utils/logger';
+import { PTT_MAX_HOLD_MS } from '../utils/constants';
 
 export class WebRTCSignalingService {
   private pttTokens: Map<string, string | null> = new Map();
+  private pttTimers: Map<string, NodeJS.Timeout> = new Map();
 
   constructor(
     private roomManager: RoomManager,
@@ -79,6 +81,19 @@ export class WebRTCSignalingService {
 
     this.pttTokens.set(roomId, playerId);
 
+    // 해제 메시지가 유실되더라도 무전이 영구히 잠기지 않도록 최대 점유 시간 후 자동 해제
+    const prevTimer = this.pttTimers.get(roomId);
+    if (prevTimer) clearTimeout(prevTimer);
+    this.pttTimers.set(
+      roomId,
+      setTimeout(() => {
+        if (this.pttTokens.get(roomId) === playerId) {
+          logger.info('PTT auto-released (max hold)', { roomId, playerId });
+          this.forceReleasePTT(roomId, playerId);
+        }
+      }, PTT_MAX_HOLD_MS)
+    );
+
     const thieves = Array.from(room.players.values()).filter(p => p.team === 'THIEF');
 
     thieves.forEach(thief => {
@@ -107,25 +122,35 @@ export class WebRTCSignalingService {
       return;
     }
 
-    const currentHolder = this.pttTokens.get(roomId);
+    this.forceReleasePTT(roomId, playerId);
+  }
 
-    if (currentHolder === playerId) {
-      this.pttTokens.set(roomId, null);
+  /** 팀 검증 없이 해제 (연결 끊김/방 나감/팀 변경 시) */
+  forceReleasePTT(roomId: string, playerId: string): void {
+    if (this.pttTokens.get(roomId) !== playerId) return;
 
-      const thieves = Array.from(room.players.values()).filter(p => p.team === 'THIEF');
-
-      thieves.forEach(thief => {
-        this.broadcaster.sendToPlayer(thief.playerId, {
-          type: 'ptt:status',
-          roomId,
-          playerId: thief.playerId,
-          data: {
-            activeThiefId: null,
-            activeThiefNickname: null
-          },
-          ts: Date.now()
-        });
-      });
+    this.pttTokens.set(roomId, null);
+    const timer = this.pttTimers.get(roomId);
+    if (timer) {
+      clearTimeout(timer);
+      this.pttTimers.delete(roomId);
     }
+
+    const room = this.roomManager.getRoom(roomId);
+    if (!room) return;
+
+    const thieves = Array.from(room.players.values()).filter(p => p.team === 'THIEF');
+    thieves.forEach(thief => {
+      this.broadcaster.sendToPlayer(thief.playerId, {
+        type: 'ptt:status',
+        roomId,
+        playerId: thief.playerId,
+        data: {
+          activeThiefId: null,
+          activeThiefNickname: null
+        },
+        ts: Date.now()
+      });
+    });
   }
 }

@@ -1,7 +1,7 @@
 import { Room } from '../types/room.types';
 import { calculateDistance } from '../utils/distance';
 import { Broadcaster } from './Broadcaster';
-import { PROXIMITY_ALERT_COOLDOWN_MS } from '../utils/constants';
+import { PROXIMITY_ALERT_COOLDOWN_MS, MAX_LOCATION_AGE_MS } from '../utils/constants';
 
 export class ProximityService {
   private lastAlertTime: Map<string, number> = new Map();
@@ -16,13 +16,17 @@ export class ProximityService {
       p => p.team === 'THIEF' && p.thiefStatus?.state === 'FREE'
     );
 
+    const now = Date.now();
+    const isFresh = (updatedAt: number) => now - updatedAt <= MAX_LOCATION_AGE_MS;
+
     police.forEach(cop => {
-      if (!cop.location) return;
+      if (!cop.location || !isFresh(cop.location.updatedAt)) return;
 
       let minDistance = Infinity;
 
       thieves.forEach(thief => {
-        if (!thief.location) return;
+        // 오래된 위치(연결 끊김 등)로 잘못된 근접 알림이 가지 않도록 제외
+        if (!thief.location || !isFresh(thief.location.updatedAt)) return;
 
         const distance = calculateDistance(
           cop.location!.lat,

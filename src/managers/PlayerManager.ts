@@ -7,6 +7,12 @@ export class PlayerManager {
   private wsToPlayer: Map<WebSocket<unknown>, string> = new Map();
 
   addConnection(playerId: string, ws: WebSocket<unknown>, roomId: string): void {
+    const prevWs = this.connections.get(playerId);
+    if (prevWs && prevWs !== ws) {
+      // 이전 소켓의 close 이벤트에서 playerId를 찾을 수 있도록 매핑은 유지하되,
+      // 연결 목록에서는 교체한다. (close 시 forgetSocket으로 정리)
+      logger.info('Replacing connection for player', { playerId });
+    }
     this.connections.set(playerId, ws);
     this.playerRooms.set(playerId, roomId);
     this.wsToPlayer.set(ws, playerId);
@@ -27,6 +33,10 @@ export class PlayerManager {
     
     const roomInfo = roomId ? ` (Room: ${roomId})` : '';
     logger.info(`❌ 접속 해제되었습니다 [${playerId}]${roomInfo}`);
+  }
+
+  forgetSocket(ws: WebSocket<unknown>): void {
+    this.wsToPlayer.delete(ws);
   }
 
   getPlayerIdByWS(ws: WebSocket<unknown>): string | null {

@@ -3,9 +3,16 @@ import { Room } from '../types/room.types';
 import { GameResult } from '../types/game.types';
 import { logger } from '../utils/logger';
 import { getBattleZoneRadiusMeters } from '../utils/battleZone';
+import type { VisibilityService } from './VisibilityService';
 
 export class Broadcaster {
+  private visibility: VisibilityService | null = null;
+
   constructor(private playerManager: PlayerManager) {}
+
+  setVisibilityService(visibility: VisibilityService): void {
+    this.visibility = visibility;
+  }
 
   sendToPlayer(playerId: string, message: any): void {
     const ws = this.playerManager.getConnectionByPlayerId(playerId);
@@ -58,29 +65,54 @@ export class Broadcaster {
         ? getBattleZoneRadiusMeters(room)
         : null;
 
-    const message = {
-      type: 'game:state',
-      roomId: room.roomId,
-      data: {
-        status: room.status,
-        phaseEndsAt: room.phaseEndsAt,
-        basecamp: room.basecamp,
-        settings: room.settings,
-        players: serializedPlayers,
-        ...(zoneRadiusMeters != null && { zoneRadiusMeters })
-      },
-      ts: Date.now()
-    };
-
-    logger.info('Game state message data', { 
-      type: message.type,
-      roomId: message.roomId,
-      playersCount: serializedPlayers.length,
-      playerSample: serializedPlayers[0]
+    // 받는 사람마다 볼 수 있는 위치만 포함해서 전송 (경찰에게 먼 도둑 위치가 새지 않도록)
+    const ts = Date.now();
+    this.playerManager.getPlayersInRoom(room.roomId).forEach(viewerId => {
+      const viewer = room.players.get(viewerId);
+      const players = serializedPlayers.map(p => {
+        const target = room.players.get(p.playerId);
+        if (!target || !this.visibility || this.visibility.canSee(room, viewer, target)) return p;
+        return { ...p, location: null };
+      });
+      this.sendToPlayer(viewerId, {
+        type: 'game:state',
+        roomId: room.roomId,
+        data: {
+          status: room.status,
+          phaseEndsAt: room.phaseEndsAt,
+          basecamp: room.basecamp,
+          settings: room.settings,
+          players,
+          ...(zoneRadiusMeters != null && { zoneRadiusMeters })
+        },
+        ts
+      });
     });
-    
-    this.broadcastToRoom(room.roomId, message);
     logger.info('Game state broadcasted to room', { roomId: room.roomId });
+  }
+
+  /** 위치 업데이트를 볼 수 있는 사람에게만 전송 */
+  broadcastLocation(room: Room, playerId: string): void {
+    const mover = room.players.get(playerId);
+    if (!mover?.location) return;
+    const messageStr = JSON.stringify({
+      type: 'location:update',
+      roomId: room.roomId,
+      data: { playerId, location: mover.location, team: mover.team },
+      ts: Date.now()
+    });
+    this.playerManager.getPlayersInRoom(room.roomId).forEach(viewerId => {
+      if (viewerId === playerId) return;
+      const viewer = room.players.get(viewerId);
+      if (this.visibility && !this.visibility.canSee(room, viewer, mover)) return;
+      const ws = this.playerManager.getConnectionByPlayerId(viewerId);
+      if (!ws) return;
+      try {
+        ws.send(messageStr);
+      } catch (error) {
+        logger.error('Failed to send location', { viewerId, error });
+      }
+    });
   }
 
   broadcastTeamAssignment(room: Room): void {

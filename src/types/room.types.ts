@@ -32,6 +32,8 @@ export interface Room {
   hostId: string;
   status: RoomStatus;
   createdAt: number;
+  /** 마지막 메시지 수신 시각 (방 정리 기준) */
+  lastActivityAt?: number;
   phaseEndsAt: number | null;
   settings: RoomSettings;
   basecamp: Basecamp | null;

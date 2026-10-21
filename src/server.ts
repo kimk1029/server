@@ -11,6 +11,7 @@ import { Broadcaster } from './services/Broadcaster';
 import { ProximityService } from './services/ProximityService';
 import { BattleZoneService, BATTLE_ZONE_CHECK_INTERVAL_MS } from './services/BattleZoneService';
 import { WebRTCSignalingService } from './services/WebRTCSignalingService';
+import { VisibilityService } from './services/VisibilityService';
 import { MessageRouter } from './router';
 import { logger } from './utils/logger';
 import { ROOM_CLEANUP_INTERVAL_MS, ROOM_MAX_IDLE_MS } from './utils/constants';
@@ -29,6 +30,8 @@ export const startServer = () => {
   const proximityService = new ProximityService(broadcaster);
   const battleZoneService = new BattleZoneService(broadcaster);
   const webrtcService = new WebRTCSignalingService(roomManager, broadcaster);
+  const visibilityService = new VisibilityService(broadcaster);
+  broadcaster.setVisibilityService(visibilityService);
 
   const gameEngine = new GameEngine(
     roomManager,
@@ -51,7 +54,8 @@ export const startServer = () => {
     distanceValidator,
     permissionValidator,
     broadcaster,
-    webrtcService
+    webrtcService,
+    visibilityService
   );
 
   const app = uWS.App({
@@ -76,8 +80,9 @@ export const startServer = () => {
         const data = JSON.parse(text);
 
         const playerId = data.playerId;
-        if (playerId && !playerManager.isConnected(playerId)) {
-          const roomId = data.roomId || '';
+        if (playerId && playerManager.getConnectionByPlayerId(playerId) !== ws) {
+          // 신규 연결이거나 재연결(새 소켓): 이전 소켓(half-open일 수 있음)을 새 소켓으로 교체
+          const roomId = data.roomId || playerManager.getRoomIdByPlayerId(playerId) || '';
           playerManager.addConnection(playerId, ws, roomId);
         }
 
@@ -90,6 +95,11 @@ export const startServer = () => {
           });
         }
 
+        if (data.roomId) {
+          const activeRoom = roomManager.getRoom(data.roomId);
+          if (activeRoom) activeRoom.lastActivityAt = Date.now();
+        }
+
         messageRouter.handleMessage(ws, data);
       } catch (error) {
         logger.error('Message parse error', { error, message: Buffer.from(message).toString('utf8').substring(0, 200) });
@@ -100,27 +110,35 @@ export const startServer = () => {
       logger.info('WebSocket connection closed', { code });
 
       const playerId = playerManager.getPlayerIdByWS(ws);
-      if (playerId) {
-        const roomId = playerManager.getRoomIdByPlayerId(playerId);
-        if (roomId) {
-          const room = roomManager.getRoom(roomId);
-          if (room) {
-            const player = room.players.get(playerId);
-            if (player) {
-              player.connected = false;
-              room.players.set(playerId, player);
-              logger.info('Player disconnected', { roomId, playerId, status: room.status });
+      if (!playerId) return;
 
-              if (room.status === 'HIDING' || room.status === 'CHASE') {
-                // 게임 중 접속 해제 → 즉시 게임 종료 + 전원 알림
-                gameEngine.handlePlayerDisconnect(roomId, playerId);
-              } else {
-                broadcaster.broadcastGameState(room);
-              }
+      // 이미 새 소켓으로 재연결된 경우, 이전 소켓의 close는 무시
+      if (playerManager.getConnectionByPlayerId(playerId) !== ws) {
+        playerManager.forgetSocket(ws);
+        return;
+      }
+
+      const roomId = playerManager.getRoomIdByPlayerId(playerId);
+      // 연결 목록에서 먼저 제거 (이후 브로드캐스트가 닫힌 소켓으로 가지 않도록)
+      playerManager.removeConnection(playerId);
+      if (roomId) {
+        webrtcService.forceReleasePTT(roomId, playerId);
+        const room = roomManager.getRoom(roomId);
+        if (room) {
+          const player = room.players.get(playerId);
+          if (player) {
+            player.connected = false;
+            room.players.set(playerId, player);
+            logger.info('Player disconnected', { roomId, playerId, status: room.status });
+
+            if (room.status === 'HIDING' || room.status === 'CHASE') {
+              // 게임 중 접속 해제 → 한 팀 전원이 나갔으면 게임 종료, 아니면 상태 브로드캐스트
+              gameEngine.handlePlayerDisconnect(roomId, playerId);
+            } else {
+              broadcaster.broadcastGameState(room);
             }
           }
         }
-        playerManager.removeConnection(playerId);
       }
     }
   });
@@ -145,6 +163,8 @@ export const startServer = () => {
       if (room.status === 'CHASE') {
         proximityService.checkProximity(room);
       }
+      // 검거/해제 등 위치 외 변화로 인한 공개 범위 변경 반영
+      visibilityService.refresh(room);
       battleZoneService.checkBattleZone(room);
     });
     // 게임 시간 만료 시 강제 종료 (setTimeout 유실 시 안전망)
@@ -156,11 +176,15 @@ export const startServer = () => {
     const rooms = roomManager.getAllRooms();
 
     rooms.forEach(room => {
-      const inactive = now - room.createdAt > ROOM_MAX_IDLE_MS;
+      // 생성 시각이 아니라 마지막 활동 기준으로 판단 (진행 중인 게임이 10분 뒤 삭제되던 문제 수정)
+      const lastActivityAt = room.lastActivityAt ?? room.createdAt;
+      const inProgress = room.status === 'HIDING' || room.status === 'CHASE';
+      const inactive = !inProgress && now - lastActivityAt > ROOM_MAX_IDLE_MS;
       const empty = room.players.size === 0;
 
       if (inactive || empty) {
         battleZoneService.clearRoom(room.roomId);
+        visibilityService.clearRoom(room.roomId);
         roomManager.deleteRoom(room.roomId);
         logger.info('Room cleaned up', { roomId: room.roomId, reason: inactive ? 'inactive' : 'empty' });
       }
